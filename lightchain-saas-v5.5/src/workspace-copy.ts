@@ -189,7 +189,7 @@ export const workspaceCopy: Record<string, readonly [string, string]> = {
 '智能裁图': ['Smart crop', 'スマートトリミング'], 'AI扩图': ['AI expand', 'AI画像拡張'], 'AI消除': ['AI erase', 'AI消去'], '工艺单': ['Tech pack', '仕様書'],
 '查看大图': ['View full image', '画像を拡大表示'], '取消收藏': ['Remove from favorites', 'お気に入りを解除'], '收藏': ['Favorite', 'お気に入り'], '下载原图': ['Download original', '元画像をダウンロード'],
 '右侧面板': ['Sidebar', 'サイドパネル'], '图层属性': ['Layer properties', 'レイヤープロパティ'], 'AI助手': ['AI assistant', 'AIアシスタント'],
-'我': ['You', 'あなた'], '演示对话': ['Sample conversation', 'サンプル会話'], '参考图片': ['Reference image', '参考画像'], '示例结果图': ['Sample result', 'サンプル結果画像'],
+'我': ['You', 'あなた'], '演示对话': ['Sample conversation', 'サンプル会話'], '示例结果图': ['Sample result', 'サンプル結果画像'],
 '参考这件连衣裙，保留版型和收腰，换成浅蓝色条纹面料。': ['Keep the shape and fitted waist of this dress, but use pale blue striped fabric.', 'このワンピースのシルエットとウエストの絞りを残し、生地を淡いブルーのストライプに変えてください。'],
 '可以。会保留 V 领、腰线和灯笼袖，先给你一个浅蓝条纹方向。': ["Sure. I'll keep the V-neck, waistline and puff sleeves. Here's a pale blue striped direction.", '承知しました。Vネック、ウエストライン、パフスリーブを残して、淡いブルーのストライプ案を作りました。'],
 '条纹再细一点，袖口保持蓬松，裙摆自然垂下。': ['Make the stripes finer, keep the sleeves full and let the skirt drape naturally.', 'ストライプをもう少し細くし、袖口のふくらみを残して、スカートを自然に垂らしてください。'],
