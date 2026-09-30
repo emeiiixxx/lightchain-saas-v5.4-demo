@@ -13,16 +13,29 @@ export function TooltipHost() {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     let keyboardNavigation = false;
+    let toolbarLeaveTimer = 0;
+    const cancelToolbarLeave = () => { window.clearTimeout(toolbarLeaveTimer); toolbarLeaveTimer = 0; };
     const anchorOf = (node: EventTarget | null) => node instanceof Element ? node.closest<HTMLElement>('[data-tooltip]') : null;
     const show = (anchor: HTMLElement | null) => {
+      cancelToolbarLeave();
       if (!anchor || anchor.closest('[inert]')) return;
       if (!shouldShowTooltip(anchor)) { setTarget(null); return; }
       const label = anchor.dataset.tooltip;
       if (label) setTarget(current => current?.anchor === anchor && current.label === label ? current : { anchor, label, container: anchor.closest('dialog') ?? document.body });
     };
-    const hide = () => setTarget(null);
-    const over = (e: PointerEvent) => { if (e.pointerType !== 'touch' && !e.buttons) show(anchorOf(e.target)); };
-    const out = (e: PointerEvent) => { if (anchorOf(e.target) !== anchorOf(e.relatedTarget)) hide(); };
+    const hide = () => { cancelToolbarLeave(); setTarget(null); };
+    const over = (e: PointerEvent) => { if (e.pointerType !== 'touch' && !e.buttons) { const anchor = anchorOf(e.target); if (anchor) show(anchor); } };
+    const out = (e: PointerEvent) => {
+      const from = anchorOf(e.target);
+      const to = anchorOf(e.relatedTarget);
+      if (!from || from === to) return;
+      // Keep one tooltip mounted while the pointer crosses the toolbar's button gaps.
+      const toolbar = from.closest('.element-toolbar');
+      if (toolbar && e.relatedTarget instanceof Node && toolbar.contains(e.relatedTarget)) {
+        cancelToolbarLeave();
+        toolbarLeaveTimer = window.setTimeout(hide, 120);
+      } else hide();
+    };
     const focus = (e: FocusEvent) => { const anchor = anchorOf(e.target); if (keyboardNavigation && anchor?.matches(':focus-visible')) show(anchor); };
     const key = (e: KeyboardEvent) => { if (e.key === 'Tab' || e.key.startsWith('Arrow')) keyboardNavigation = true; if (e.key === 'Escape') hide(); };
     const pointerDown = () => { keyboardNavigation = false; hide(); };
@@ -36,6 +49,7 @@ export function TooltipHost() {
     document.addEventListener('wheel', hide, true);
     window.addEventListener('blur', hide);
     return () => {
+      cancelToolbarLeave();
       document.removeEventListener('pointerover', over, true);
       document.removeEventListener('pointerout', out, true);
       document.removeEventListener('pointerdown', pointerDown, true);

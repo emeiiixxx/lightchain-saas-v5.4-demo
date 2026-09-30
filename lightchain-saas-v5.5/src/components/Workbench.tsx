@@ -305,20 +305,15 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     const ox = (width - item.width) / 2 * (h.includes('l') ? -1 : h.includes('r') ? 1 : 0), oy = (height - item.height) / 2 * (h.includes('t') ? -1 : h.includes('b') ? 1 : 0);
     board.updateSelected({ width, height, x: item.x + item.width / 2 + ox * Math.cos(angle) - oy * Math.sin(angle) - width / 2, y: item.y + item.height / 2 + ox * Math.sin(angle) + oy * Math.cos(angle) - height / 2 }, false);
   };
-  const unavailable = () => onNotify(demoNotice(locale));
+  const unavailable = () => { setMenu(null); onNotify(demoNotice(locale)); };
   const elementAction = (label: string, entry: string) => {
-    if (label === '款式' && ['面料替换', '颜色修改', 'AI试衣', '转3D平铺', '多视角', '款式裂变'].includes(entry)) {
-      setMenu(null);
-      onNotify(t('功能无需修改，Demo 不作演示'));
-      return;
-    }
     if (label === '款式' && ['局部修改', '印花上身'].includes(entry) && selected) {
       setMenu(null); setQuickEdit(null);
       if (leftTab === 'layers') setLeftTab('history');
       setLocalEditTool(entry as CanvasEditTool); board.setInteractionLocked(true); setLocalEdit(selected.id);
       return;
     }
-    action(t(entry));
+    unavailable();
   };
   const elementMenu = (label: string, icon: string) => <ElementMenu label={label} icon={icon} open={menu === label} onToggle={() => toggleMenu(label)} onClose={() => setMenu(null)} onAction={entry => elementAction(label, entry)} />;
 
@@ -344,7 +339,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     <div ref={bottomToolsRef} className="bottom-tools wb-surface" data-canvas-ui data-phase={phase} role="toolbar" aria-label={t("画布工具栏")} style={{ '--bottom-tools-shift': `${bottomToolsShift}px`, '--bottom-tools-bottom': `${bottomToolsBottom}px` } as CSSProperties}>
       <Tool disabled={!!localEdit} icon="canvas-imgIconEditor" label={t("选择 V")} active={board.effectiveMode === 'select'} onClick={() => board.setMode('select')} /><Tool disabled={!!localEdit} icon="canvas-imgIconEditor1" label={t("抓手 H")} active={board.effectiveMode === 'hand'} onClick={() => board.setMode('hand')} />
       <Tool icon="canvas-imgIconEditor2" label={t("撤销")} disabled={!!localEdit || !board.canUndo} onClick={board.undo} /><Tool icon="canvas-imgIconEditor3" label={t("重做")} disabled={!!localEdit || !board.canRedo} onClick={board.redo} /><Divider vertical />
-      <Tool disabled={!!localEdit} icon="canvas-imgIconEditor4" label={t("添加矩形")} onClick={unavailable} /><Tool disabled={!!localEdit} icon="canvas-imgIconEditor5" label={t("添加画框")} onClick={unavailable} /><Tool disabled={!!localEdit} icon="canvas-imgIconEditor6" label={t("添加文字")} onClick={unavailable} /><Tool disabled={!!localEdit} icon="canvas-imgIconSystem5" label={t("上传图片")} onClick={onUpload} /><Divider vertical /><Tool disabled={!!localEdit} icon="canvas-imgIconBusinessApparelDesign1" label={t("工艺单")} onClick={() => action(t("工艺单"))} />
+      <Tool disabled={!!localEdit} icon="canvas-imgIconEditor4" label={t("添加矩形")} onClick={unavailable} /><Tool disabled={!!localEdit} icon="canvas-imgIconEditor5" label={t("添加画框")} onClick={unavailable} /><Tool disabled={!!localEdit} icon="canvas-imgIconEditor6" label={t("添加文字")} onClick={unavailable} /><Tool disabled={!!localEdit} icon="canvas-imgIconSystem5" label={t("上传图片")} onClick={onUpload} /><Divider vertical /><Tool disabled={!!localEdit} icon="canvas-imgIconBusinessApparelDesign1" label={t("工艺单")} onClick={unavailable} />
     </div>
     <div ref={zoomToolsRef} className={`zoom-tools ${open ? 'with-panel' : ''}`} data-canvas-ui data-phase={phase}>
       <div className="zoom-pill wb-surface" data-workbench-menu><Tool icon="canvas-imgIconEditor8" label={t("缩小")} disabled={!!localEdit} onClick={() => board.zoomAt(board.camera.zoom / 1.2, undefined, { animate: true, duration: 200 })} /><Button className="zoom-trigger" disabled={!!localEdit} aria-haspopup="true" aria-expanded={menu === 'zoom'} aria-controls="canvas-zoom-menu" onClick={() => toggleMenu('zoom')}><span>{Math.round(board.camera.zoom * 100)}%</span><Icon name="zoom-chevron-up" size={16} /></Button><Tool icon="canvas-imgIconEditor9" label={t("放大")} disabled={!!localEdit} onClick={() => board.zoomAt(board.camera.zoom * 1.2, undefined, { animate: true, duration: 200 })} />{shownMenu.value === 'zoom' && <div id="canvas-zoom-menu" className="workbench-menu zoom-menu" data-phase={shownMenu.phase} inert={shownMenu.phase === 'exit'}>{zoomOptions.map(n => <button key={n} aria-pressed={n === zoomPercent} onClick={() => { board.zoomAt(n / 100, undefined, { animate: true }); setMenu(null); }}><span className="zoom-option-label">{n}%</span>{n === zoomPercent && <Icon name="check" size={16} />}</button>)}<button onClick={() => { board.fit({ animate: true }); setMenu(null); }}><span className="zoom-option-label">{t("适应屏幕")}</span></button></div>}</div>
@@ -379,16 +374,16 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
         <div className="element-menu-anchor" data-workbench-menu>
           <Button className="workbench-tool element-menu-trigger" aria-label={t("更多操作")} title={t("更多操作")} aria-haspopup="menu" aria-expanded={menu === 'more'} aria-controls="element-more-menu" onClick={() => toggleMenu('more')}><Icon name="element-more" size={20} /></Button>
           {shownMenu.value === 'more' && <div id="element-more-menu" className="element-design-menu element-more-menu" role="menu" aria-label={t("更多操作")} data-phase={shownMenu.phase} inert={shownMenu.phase === 'exit'}>
-            {[t("高清放大"), t("一键去底"), t("智能抠图"), t("智能裁图"), t("AI扩图"), t("AI消除")].map((label, index) => <Button role="menuitem" key={label} onClick={() => action(label)}><Icon name={`menu-41-3399-imgLeftIcon${index || ''}`} size={20} /><span>{label}</span></Button>)}
+            {[t("高清放大"), t("一键去底"), t("智能抠图"), t("智能裁图"), t("AI扩图"), t("AI消除")].map((label, index) => <Button role="menuitem" key={label} onClick={unavailable}><Icon name={`menu-41-3399-imgLeftIcon${index || ''}`} size={20} /><span>{label}</span></Button>)}
           </div>}
         </div>
-        <Divider vertical /><Button onClick={() => action(t("工艺单素材包"))}><Icon name="element-tech" size={20} />{t("工艺单")}</Button><Divider vertical /><Tool icon="element-preview" label={t("查看大图")} onClick={() => setPreview(true)} /><Tool icon="asset-center" label={t("收藏到资源库")} onClick={unavailable} /><DownloadFormatMenu withLabel={false} open={menu === 'download'} onToggle={() => toggleMenu('download')} onClose={() => setMenu(null)} onSelect={format => void board.downloadImage(format)} /><ElementSendMenu open={menu === 'send'} onToggle={() => toggleMenu('send')} onClose={() => setMenu(null)} onSend={unavailable} />
+        <Divider vertical /><Button onClick={unavailable}><Icon name="element-tech" size={20} />{t("工艺单")}</Button><Divider vertical /><Tool icon="element-preview" label={t("查看大图")} onClick={() => setPreview(true)} /><Tool icon="asset-center" label={t("收藏到资源库")} onClick={unavailable} /><DownloadFormatMenu withLabel={false} open={menu === 'download'} onToggle={() => toggleMenu('download')} onClose={() => setMenu(null)} onSelect={format => void board.downloadImage(format)} /><ElementSendMenu open={menu === 'send'} onToggle={() => toggleMenu('send')} onClose={() => setMenu(null)} onSend={unavailable} />
       </div>}
     </>}
     {shownPanel.value && <aside id="canvas-right-sidebar" className={`right-panel ${tab === 'properties' ? 'properties-panel' : ''}`} data-canvas-ui data-phase={shownPanel.phase} inert={shownPanel.phase === 'exit'}>
       <header className="right-panel-header"><div ref={switcherRef} className="right-panel-switcher" role="tablist" aria-label={t("右侧面板")}><span className="switcher-indicator" style={indicatorStyle} aria-hidden="true" />{(['agent', 'properties'] as const).map((value, i) => <button key={value} role="tab" id={`panel-tab-${value}`} aria-controls="right-panel-content" aria-selected={tab === value} tabIndex={tab === value ? 0 : -1} onClick={() => setTab(value)} onKeyDown={e => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) { e.preventDefault(); const next = tab === 'agent' ? 'properties' : 'agent'; setTab(next); document.getElementById(`panel-tab-${next}`)?.focus(); } }}><Icon name={i ? 'prop-imgLeftSlot1' : 'prop-imgLeftSlot'} size={16} />{i ? t("图层属性") : t("AI助手")}</button>)}</div><Tool icon="sidebar" label={t("收起右侧栏")} size={24} onClick={() => onOpenChange(false)} /></header>
       <div id="right-panel-content" role="tabpanel" aria-labelledby={`panel-tab-${tab}`} className="right-panel-content">
-        {tab === 'properties' ? <div className="properties-content" inert={!!localEdit}><ImageProperties board={board} onNotify={onNotify} rotationLocked={rotationLocked} onReplace={onReplace} onAction={entry => entry === t("局部编辑") ? elementAction("款式", "局部修改") : action(entry)} /></div> : <>
+        {tab === 'properties' ? <div className="properties-content" inert={!!localEdit}><ImageProperties board={board} onNotify={onNotify} rotationLocked={rotationLocked} onReplace={onReplace} onAction={entry => entry === t("局部编辑") ? elementAction("款式", "局部修改") : unavailable()} /></div> : <>
           <div className="conversation-bar">
             <div className="conversation-menu-anchor" data-workbench-menu>
               <Button className="conversation-trigger" aria-haspopup="menu" aria-controls="conversation-history-menu" aria-expanded={menu === 'conversations'} onClick={() => toggleMenu('conversations')} onKeyDown={event => {
