@@ -51,6 +51,6 @@ export function GenerationSettings({ anchor, phase, ratio, resolution, count, on
       { value: '2K', label: `${t('高清')} 2K`, icon: 'parameter-hd' },
       { value: '4K', label: `${t('超清')} 4K`, icon: 'parameter-4k' },
     ]} /></section>
-    <section><h3>{t('生成数量')}</h3><ParameterSegments label={t('生成数量')} value={count} onChange={onCountChange} options={['1', '2', '3', '4'].map(value => ({ value, label: t('{count}张').replace('{count}', value) }))} /></section>
+    <section><h3>{t('生成数量')}</h3><ParameterSegments label={t('生成数量')} value={count} onChange={onCountChange} options={['1', '2', '3', '4'].map(value => ({ value, label: t(`${value}张`) }))} /></section>
   </div>;
 }

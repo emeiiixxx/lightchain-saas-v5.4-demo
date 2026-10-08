@@ -120,7 +120,7 @@ export const workspaceCopy: Record<string, readonly [string, string]> = {
 '描述你想如何修改这张图片': ['Describe how you want to edit this image', 'この画像をどのように編集したいか入力'],
 '编辑图片': ['Edit image', '編集対象'], '参考图片': ['Reference image', '参考画像'],
 '添加图片': ['Add image', '画像を追加'], '从画布中选择': ['Choose from canvas', 'キャンバスから選択'],
-'生成设置': ['Generation settings', '生成設定'], '智能': ['Auto', '自動'], '{count}张': ['{count} image(s)', '{count}枚'],
+'生成设置': ['Generation settings', '生成設定'], '智能': ['Auto', '自動'],
 '图片比例': ['Aspect ratio', 'アスペクト比'], '分辨率': ['Resolution', '解像度'], '图片数量': ['Image count', '画像数'],
 '30 / 张': ['30 / image', '30 / 枚'],
 '画布': ['Canvas', 'キャンバス'], '元素': ['Elements', '要素'], '抓手': ['Hand', 'ハンド'], '选择': ['Select', '選択'],

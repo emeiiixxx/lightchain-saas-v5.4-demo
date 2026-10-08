@@ -85,7 +85,7 @@ export function PrintPlacementDialog({ source, draft, phase, onClose, onConfirm,
           </ol>
         </div>
         <footer className="print-placement-footer">
-          <Button className="print-placement-settings" onClick={previewOnly} aria-label={t('生成设置')}><Icon name={`parameter-${draft.ratio.replace(':', '-')}`} size={16} /><span>{draft.ratio === 'auto' ? t('智能') : draft.ratio} ｜ {draft.resolution} ｜ {t('{count}张').replace('{count}', draft.count)}</span><Icon name="quick-edit-imgChevron" size={16} /></Button>
+          <Button className="print-placement-settings" onClick={previewOnly} aria-label={t('生成设置')}><Icon name={`parameter-${draft.ratio.replace(':', '-')}`} size={16} /><span>{draft.ratio === 'auto' ? t('智能') : draft.ratio} ｜ {draft.resolution} ｜ {t(`${draft.count}张`)}</span><Icon name="quick-edit-imgChevron" size={16} /></Button>
           <GenerateTaskButton cost={30 * Number(draft.count)} disabled={!pattern || !ready || phase === 'exit'} onClick={() => { if (submitted.current) return; submitted.current = true; onConfirm(); }}>{t('确认并生成')}</GenerateTaskButton>
         </footer>
       </aside>

@@ -11,6 +11,8 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   useLayoutEffect(() => { document.documentElement.lang = locale; try { localStorage.setItem('lightchain-locale', locale); } catch { /* Keep the in-memory selection. */ } }, [locale]);
   const t = useCallback((text: string) => {
     if (locale === 'zh-CN') return text;
+    const imageCount = text.match(/^(\d+)张$/);
+    if (imageCount) return locale === 'ja' ? `${imageCount[1]}枚` : `${imageCount[1]} ${Number(imageCount[1]) === 1 ? 'image' : 'images'}`;
     const translated = workspaceCopy[text]?.[locale === 'en' ? 0 : 1];
     const key = existing.get(text) as keyof typeof messages['zh-CN'] | undefined;
     return translated ?? (key ? messages[locale][key] : text);

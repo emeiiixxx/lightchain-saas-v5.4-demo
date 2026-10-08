@@ -119,7 +119,7 @@ export function QuickEditComposer({ board, image, phase, onClose, onSubmit, uplo
   }, [menu]);
   const submit = () => {
     if (!canSubmit || generating || phase === 'exit') return;
-    onSubmit([value.trim() || toolTitle, `${t('编辑图片')}：${image.name}`, ...references.map(ref => `${t('参考图片')}：${ref.name}`), `${ratio === 'auto' ? t('智能') : ratio} | ${resolution} | ${t('{count}张').replace('{count}', count)}`].join('\n'), draft);
+    onSubmit([value.trim() || toolTitle, `${t('编辑图片')}：${image.name}`, ...references.map(ref => `${t('参考图片')}：${ref.name}`), `${ratio === 'auto' ? t('智能') : ratio} | ${resolution} | ${t(`${count}张`)}`].join('\n'), draft);
   };
   const addFiles = async (files: FileList) => {
     if (reading.current) return;
@@ -180,7 +180,7 @@ export function QuickEditComposer({ board, image, phase, onClose, onSubmit, uplo
       <div className="quick-edit-actions">
         {localEdit ? <Button icon="prop-imgNameInpaint" onClick={() => { setMenu(null); onNotify(demoNotice(locale)); }}>{copy.draw}</Button> : <IconButton size="m" icon="quick-edit-imgIcon" className="quick-edit-add" aria-label={t('添加图片')} aria-haspopup="dialog" onClick={openReferences} />}
         <Divider vertical />
-        <div ref={settingsAnchor} className="quick-edit-menu-anchor"><Button className="quick-edit-settings-trigger" aria-haspopup="dialog" aria-controls="quick-edit-generation-settings" aria-label={t('生成设置')} aria-expanded={menu === 'settings'} onClick={() => setMenu(menu === 'settings' ? null : 'settings')}><Icon name={`parameter-${ratio.replace(':', '-')}`} size={20} /><span>{ratio === 'auto' ? t('智能') : ratio} ｜ {resolution} ｜ {t('{count}张').replace('{count}', count)}</span><Icon name="quick-edit-imgChevron" size={16} /></Button>
+        <div ref={settingsAnchor} className="quick-edit-menu-anchor"><Button className="quick-edit-settings-trigger" aria-haspopup="dialog" aria-controls="quick-edit-generation-settings" aria-label={t('生成设置')} aria-expanded={menu === 'settings'} onClick={() => setMenu(menu === 'settings' ? null : 'settings')}><Icon name={`parameter-${ratio.replace(':', '-')}`} size={20} /><span>{ratio === 'auto' ? t('智能') : ratio} ｜ {resolution} ｜ {t(`${count}张`)}</span><Icon name="quick-edit-imgChevron" size={16} /></Button>
           {shownMenu.value === 'settings' && <GenerationSettings anchor={settingsAnchor} phase={shownMenu.phase} ratio={ratio} resolution={resolution} count={count} onRatioChange={setRatio} onResolutionChange={setResolution} onCountChange={setCount} />}
 
         </div>
