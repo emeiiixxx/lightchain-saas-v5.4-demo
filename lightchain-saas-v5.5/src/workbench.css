@@ -292,6 +292,14 @@ html:not([lang='zh-CN']) .shortcuts-panel { width: 400px; }
 .quick-edit-composer textarea { height: 64px; min-height: 64px; max-height: 180px; color: var(--text-secondary); }
 .quick-edit-footer, .quick-edit-actions, .quick-edit-submit { display: flex; align-items: center; gap: 8px; }
 .quick-edit-footer { width: 100%; justify-content: space-between; flex-wrap: wrap; }
+/* Keep the floating quick-edit controls on one line in every locale. */
+.quick-edit-composer:not(.local-edit-composer) .quick-edit-footer { flex-wrap: nowrap; }
+.quick-edit-composer:not(.local-edit-composer) .quick-edit-actions { min-width: 0; flex: 0 1 auto; }
+.quick-edit-composer:not(.local-edit-composer) .quick-edit-menu-anchor { min-width: 0; flex: 0 1 auto; }
+.quick-edit-composer:not(.local-edit-composer) .quick-edit-settings-trigger { width: 100%; min-width: 0; }
+.quick-edit-composer:not(.local-edit-composer) .quick-edit-settings-trigger > span:not(.icon) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.quick-edit-composer:not(.local-edit-composer) .quick-edit-submit { flex: none; }
+
 .quick-edit-actions > .divider { height: 20px; }
 .quick-edit-add { border-radius: var(--radius-base); }
 /* Beta Select / Size=M, 66:68. */

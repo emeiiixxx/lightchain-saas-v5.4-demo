@@ -145,9 +145,9 @@ export function QuickEditComposer({ board, image, phase, onClose, onSubmit, uplo
   };
   const width = Math.min(480, Math.max(0, board.size.width - 32));
   const bounds = imageBounds(image);
-  const left = (bounds.x + bounds.width / 2) * board.camera.zoom + board.camera.x - width / 2;
+  const left = (bounds.x + bounds.width / 2) * board.camera.zoom + board.camera.x;
   const top = (bounds.y + bounds.height) * board.camera.zoom + board.camera.y + 24;
-  return <><div ref={root} className={`quick-edit-composer ${localEdit ? 'local-edit-composer' : 'agent-composer'} ${printApply ? 'print-apply-composer' : tryOn ? 'try-on-composer' : ''}`} role="region" aria-label={toolTitle} data-canvas-ui data-workbench-menu data-phase={phase} inert={phase === 'exit'} style={(localEdit ? { left: dock.left, bottom: 88, width: dock.width } : { left, top, width }) as CSSProperties}>
+  return <><div ref={root} className={`quick-edit-composer ${localEdit ? 'local-edit-composer' : 'agent-composer'} ${printApply ? 'print-apply-composer' : tryOn ? 'try-on-composer' : ''}`} role="region" aria-label={toolTitle} data-canvas-ui data-workbench-menu data-phase={phase} inert={phase === 'exit'} style={(localEdit ? { left: dock.left, bottom: 88, width: dock.width } : { left, top, width: 'max-content', minWidth: width, maxWidth: Math.max(0, board.size.width - 32), transform: 'translateX(-50%)' }) as CSSProperties}>
     {localEdit && <header className="local-edit-header"><div className="local-edit-heading"><h2>{toolTitle}</h2>{printApply && <p className="tool-input-hint"><Icon name="tool-info" size={16} /><span>{t('服装建议为平铺图，若您的图片非平铺图，建议使用“转3D平铺”后再次使用')}</span></p>}</div><IconButton icon="close" size="m" aria-label={`${t('关闭')} ${toolTitle}`} onClick={onClose} /></header>}
     <div className={localEdit ? 'local-edit-input agent-composer' : 'quick-edit-input'}>
     {localEdit && <div className="local-edit-media" data-component="Canvas/ToolMediaRow">
