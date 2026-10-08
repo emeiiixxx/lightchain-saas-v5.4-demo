@@ -380,6 +380,16 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     notify('已设为项目封面', 'success');
     return true;
   }, [remember, notify, finishPlacement]);
+  const resetCover = useCallback((imageId: string) => {
+    finishPlacement();
+    const state = live.current;
+    if (!state.images.some(item => item.id === imageId && item.cover)) return false;
+    remember(state.images);
+    const next = state.images.map(item => item.cover ? { ...item, cover: false } : item);
+    live.current.images = next; setImages(next);
+    notify('已恢复默认封面', 'success');
+    return true;
+  }, [remember, notify, finishPlacement]);
   const downloadImage = useCallback(async (format: 'PNG' | 'JPG' | 'WebP' | 'AVIF') => {
     const state = live.current;
     const items = state.images.filter(item => state.selectedIds.includes(item.id));
@@ -389,7 +399,7 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
       else await exportImage(items[0].image, items[0].name, format);
     } catch (error) { notify(error instanceof Error && error.message === '当前浏览器不支持此格式导出，请选择其他格式' ? error.message : '下载失败，请重试。', 'error'); }
   }, [notify]);
-  const arrange = useCallback((layout: CanvasLayout = 'grid', scope: 'canvas' | 'selection' = 'canvas') => {
+  const arrange = useCallback((layout: CanvasLayout = 'compact', scope: 'canvas' | 'selection' = 'canvas') => {
     if (lock.current) return;
     finishPlacement();
     const state = live.current;
@@ -681,5 +691,5 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     return () => { canvas.removeEventListener('pointerenter', move); canvas.removeEventListener('pointerleave', leave); canvas.removeEventListener('contextmenu', context); stage.removeEventListener('wheel', wheel, true); canvas.removeEventListener('pointerdown', down); canvas.removeEventListener('pointermove', move); canvas.removeEventListener('pointerup', up); canvas.removeEventListener('pointercancel', up); window.removeEventListener('keydown', keydown); window.removeEventListener('keyup', keyup); window.removeEventListener('blur', blur); };
   }, [fit, remember, removeSelected, undo, redo, worldPoint, zoomAt, copySelected, duplicate, paste, selectMany, setSelected, groupSelection, updateMoveCursor, finishPlacement]);
   useEffect(() => () => { urls.current.forEach(url => URL.revokeObjectURL(url)); }, []);
-  return { projectCover, isolationActive: isolation.amount > 0 && images.some(image => image.id === isolation.id && !image.generating), locked, setInteractionLocked, setQuickEditing, blankClickVersion, setIsolatedImageId, editingViewport, focusImage, selectedIds, marquee, selectMany, updateImages, groupSelection, alignSelection, contextMenu, setContextMenu, copySelected, paste, reorder, setCover, downloadImage, size, mode, effectiveMode, setMode, beginEdit, updateSelected, duplicate, arrange, redo, canUndo: history.current.length > 0, canRedo: future.current.length > 0, historyVersion, canvasRef, images, selected, setSelected, camera, panning, upload, addImages, beginGeneration, finishGeneration, zoomAt, navigateMinimap, fit, returnToContent, removeSelected, undo };
+  return { projectCover, isolationActive: isolation.amount > 0 && images.some(image => image.id === isolation.id && !image.generating), locked, setInteractionLocked, setQuickEditing, blankClickVersion, setIsolatedImageId, editingViewport, focusImage, selectedIds, marquee, selectMany, updateImages, groupSelection, alignSelection, contextMenu, setContextMenu, copySelected, paste, reorder, setCover, resetCover, downloadImage, size, mode, effectiveMode, setMode, beginEdit, updateSelected, duplicate, arrange, redo, canUndo: history.current.length > 0, canRedo: future.current.length > 0, historyVersion, canvasRef, images, selected, setSelected, camera, panning, upload, addImages, beginGeneration, finishGeneration, zoomAt, navigateMinimap, fit, returnToContent, removeSelected, undo };
 }

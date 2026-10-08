@@ -2,7 +2,6 @@ import type { Bounds } from './canvas-selection';
 
 export const canvasLayouts = [
   { value: 'compact', label: '紧凑分布', en: 'Compact arrangement', ja: 'コンパクト配置' },
-  { value: 'grid', label: '宫格分布', en: 'Grid arrangement', ja: 'グリッド配置' },
   { value: 'horizontal', label: '水平分布', en: 'Horizontal arrangement', ja: '横に配置' },
   { value: 'vertical', label: '垂直分布', en: 'Vertical arrangement', ja: '縦に配置' },
 ] as const;
@@ -16,7 +15,7 @@ export function arrangeBoxes(boxes: Bounds[], layout: CanvasLayout, aspectRatio:
   if (!boxes.length) return [];
   if (layout === 'compact') return packBoxes(boxes, aspectRatio);
   const count = boxes.length;
-  const columns = layout === 'horizontal' ? count : layout === 'vertical' ? 1 : count <= 4 ? 2 : count < 10 ? 3 : 5;
+  const columns = layout === 'horizontal' ? count : 1;
   const columnWidths = Array.from({ length: Math.min(columns, count) }, () => 0);
   const rowHeights = Array.from({ length: Math.ceil(count / columns) }, () => 0);
   boxes.forEach((box, index) => {

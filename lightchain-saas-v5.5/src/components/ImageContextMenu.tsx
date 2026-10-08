@@ -80,10 +80,12 @@ export function ImageContextMenu({ board, onUpload }: { board: Board; onUpload: 
   </div>;
   const subTrigger = (kind: 'download' | 'order', label: string, icon: string) => <button type="button" role="menuitem" data-sub={kind} aria-haspopup="menu" aria-expanded={submenu === kind} onPointerEnter={e => openSub(kind, e.currentTarget)} onClick={e => openSub(kind, e.currentTarget)}><Icon name={icon} size={20} /><span>{t(label)}</span><Icon name="context-img" size={16} /></button>;
   const item = (label: string, icon: string, action: () => void, shortcut?: string) => <button type="button" role="menuitem" onPointerEnter={() => setSubmenu(null)} onFocus={() => setSubmenu(null)} onClick={() => perform(action)}><Icon name={icon} size={20} /><span>{t(label)}</span>{shortcut && <kbd>{shortcut}</kbd>}</button>;
-  const setProjectCover = () => {
+  const isManualCover = board.images.some(image => image.id === shown.value?.id && image.cover);
+  const updateProjectCover = () => {
     const imageId = shown.value?.id;
     if (!imageId) return;
     perform(() => {
+      if (isManualCover) { board.resetCover(imageId); return; }
       if (!board.setCover(imageId)) return;
       setCoverUsed(true);
       try { localStorage.setItem(coverNewUsedKey, '1'); } catch { /* Keep the in-session state. */ }
@@ -96,7 +98,7 @@ export function ImageContextMenu({ board, onUpload }: { board: Board; onUpload: 
     {subTrigger('order', '图层顺序', 'context-imgLeftIcon1')}
     {item('复制', 'context-imgLeftIcon2', board.copySelected, `${modifier} + C`)}
     {item('复制并粘贴', 'context-imgLeftIcon3', board.duplicate, `${modifier} + D`)}
-    <button type="button" role="menuitem" onPointerEnter={() => setSubmenu(null)} onFocus={() => setSubmenu(null)} onClick={setProjectCover}><Icon name="context-project-cover" size={20} /><span>{t('设为项目封面')}</span>{!coverUsed && <span className="image-context-new-badge">NEW</span>}</button>
+    <button type="button" role="menuitem" onPointerEnter={() => setSubmenu(null)} onFocus={() => setSubmenu(null)} onClick={updateProjectCover}><Icon name="context-project-cover" size={20} /><span>{t(isManualCover ? '恢复默认封面' : '设为项目封面')}</span>{!coverUsed && !isManualCover && <span className="image-context-new-badge">NEW</span>}</button>
     <div className="element-menu-divider" role="separator" />
     {item('删除', 'context-imgLeftIcon5', board.removeSelected, '←/del')}
     {sub.value && <div className={`image-context-menu image-context-submenu ${sub.value === 'download' ? 'element-design-menu download-format-menu' : ''} ${subPosition.left ? 'opens-left' : ''}`} role="menu" aria-label={t(sub.value === 'download' ? '下载格式' : '图层顺序')} data-phase={sub.phase} inert={sub.phase === 'exit'} style={{ left: Math.max(8, subPosition.x), top: subPosition.y, width: subWidth }}>
