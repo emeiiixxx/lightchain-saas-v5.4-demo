@@ -181,7 +181,7 @@ export function CanvasLeftPanel({ tab, hasSelectedElement, onTabChange, onClose,
         </div> : <div className="generation-record-list">
           {allRecords.map((record, index) => <article className="generation-record" key={record.id}>
             <div className="generation-record-info">
-              <div className="generation-record-heading"><div className="generation-record-heading-text"><h3 data-tooltip={t(record.title)}>{t(record.title)}</h3><time>{record.time}</time></div><TaskRecordMoreMenu canDownload={record.images.length > 0} canRegenerate={!record.generating && !record.pending} onDownload={format => void downloadGroup(record, format)} onRegenerate={() => onRegenerate(record)} onDelete={() => setDeleteTarget({ kind: 'record', record })} /></div>
+              <div className="generation-record-heading"><div className="generation-record-heading-text"><h3>{t(record.title)}</h3><time>{record.time}</time></div><TaskRecordMoreMenu canDownload={record.images.length > 0} canRegenerate={!record.generating && !record.pending} onDownload={format => void downloadGroup(record, format)} onRegenerate={() => onRegenerate(record)} onDelete={() => setDeleteTarget({ kind: 'record', record })} /></div>
               <GenerationRecordTags record={record} active={tab === 'history'} />
               {recordHasPrompt(record) && <div className="generation-record-prompt">
                 <p data-tooltip={t(record.prompt!)} data-tooltip-truncated-only>{t(record.prompt!)}</p>
