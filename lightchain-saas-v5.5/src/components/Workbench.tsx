@@ -202,7 +202,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     if (!independent) setConversation(previous => [...previous, { role: 'user', text: request }, { role: 'assistant', text: '已记录设计需求。当前为交互 Demo，暂未接入 AI 生成。' }]);
     setHasUnreadGeneration(leftTab !== 'history');
     setQuickEdit(null);
-    // Insert beside the source and ease colliding content right; keep the viewport unchanged.
+    // Find space for the whole batch to the source's right; keep existing content and viewport fixed.
     if (independent) closeLocalEdit();
     // Decode in parallel with the demo delay, so loading starts immediately and lasts 3s.
     const delay = new Promise<void>(resolve => {
@@ -216,7 +216,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
       finishDemoBatch(id, placeholders, results);
     } catch {
       if (!generationMounted.current) return;
-      board.finishGeneration(placeholders.map(item => item.id), null);
+      board.finishGeneration(placeholders.map(item => item.id), null, true);
       setGenerationRecords(previous => previous.map(record => record.id === id ? { ...record, generating: false, failed: true } : record));
       onNotify('图片加载失败，请重试', 'error');
     } finally {
@@ -288,7 +288,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
       finishDemoBatch(id, placeholders, results);
     } catch {
       if (!generationMounted.current) return;
-      board.finishGeneration(placeholders.map(item => item.id), null);
+      board.finishGeneration(placeholders.map(item => item.id), null, true);
       setGenerationRecords(previous => previous.map(item => item.id === id ? { ...item, generating: false, failed: true } : item));
       onNotify('图片加载失败，请重试', 'error');
     }

@@ -2,7 +2,7 @@ import { resolveProjectCover } from './project-cover';
 import type { Notify } from './notification';
 import { CanvasIsolationCache, paintCanvasImage, paintCanvasScene, type CanvasPalette } from './canvas-renderer';
 import { nextCanvasTime, orderArrangementUnits } from './canvas-order';
-import { makeRoomForResults } from './generation-placement';
+import { placeResultBatch } from './generation-placement';
 import { MOTION_DURATION, easeOut } from './motion';
 import { downloadSelection } from './download-selection';
 import { arrangeBoxes, type CanvasLayout } from './canvas-arrangement';
@@ -63,17 +63,6 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
   }, [isolatedImageId]);
   const [images, setImages] = useState<CanvasImage[]>([]);
   const projectCover = useMemo(() => resolveProjectCover(images), [images]);
-  // Older in-memory demo items have no timestamps. Capture their first-seen
-  // order once, so subsequent layer changes and undo never change the fallback.
-  const legacyOrderClock = useRef(0);
-  const legacyImageOrder = useRef(new Map<string, number>());
-  const legacyGroupOrder = useRef(new Map<string, number>());
-  useEffect(() => {
-    for (const item of images) {
-      if (item.addedAt === undefined && !legacyImageOrder.current.has(item.id)) legacyImageOrder.current.set(item.id, legacyOrderClock.current++);
-      if (item.groupId && item.groupedAt === undefined && !legacyGroupOrder.current.has(item.groupId)) legacyGroupOrder.current.set(item.groupId, legacyOrderClock.current++);
-    }
-  }, [images]);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; id: string | null } | null>(null);
   const copied = useRef<CanvasImage[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -299,8 +288,8 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     const next = items.filter(item => !ids.includes(item.id));
     live.current.images = next; setImages(next); setSelected(null);
   }, [remember, setSelected, finishPlacement]);
-  const undo = useCallback(() => { if (lock.current) return; finishPlacement(); const snapshot = history.current.pop(); if (snapshot) { future.current.push(live.current.images); live.current.images = snapshot; setImages(snapshot); setSelected(null); setHistoryVersion(v => v + 1); } }, [finishPlacement, setSelected]);
-  const redo = useCallback(() => { if (lock.current) return; finishPlacement(); const snapshot = future.current.pop(); if (snapshot) { history.current.push(live.current.images); live.current.images = snapshot; setImages(snapshot); setSelected(null); setHistoryVersion(v => v + 1); } }, [finishPlacement, setSelected]);
+  const undo = useCallback(() => { if (lock.current || live.current.images.some(image => image.generating)) return; finishPlacement(); const snapshot = history.current.pop(); if (snapshot) { future.current.push(live.current.images); live.current.images = snapshot; setImages(snapshot); setSelected(null); setHistoryVersion(v => v + 1); } }, [finishPlacement, setSelected]);
+  const redo = useCallback(() => { if (lock.current || live.current.images.some(image => image.generating)) return; finishPlacement(); const snapshot = future.current.pop(); if (snapshot) { history.current.push(live.current.images); live.current.images = snapshot; setImages(snapshot); setSelected(null); setHistoryVersion(v => v + 1); } }, [finishPlacement, setSelected]);
   const beginEdit = useCallback(() => { finishPlacement(); remember(live.current.images); }, [remember, finishPlacement]);
   const updateSelected = useCallback((patch: Partial<CanvasImage>, record = true) => {
     if (lock.current) return;
@@ -425,13 +414,12 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
       if (members) members.push(item);
       else units.set(key, [item]);
     });
-    const unitTime = (item: CanvasImage) => {
-      return item.groupId
-        ? item.groupedAt ?? legacyGroupOrder.current.get(item.groupId) ?? 0
-        : item.addedAt ?? legacyImageOrder.current.get(item.id) ?? 0;
-    };
-    // Sort only the layout units; preserve the canvas drawing/layer order.
-    const itemsByUnit = orderArrangementUnits([...units.values()], state.images, unitTime);
+    // Both new and legacy items follow the current top-to-bottom layer order.
+    const itemsByUnit = orderArrangementUnits([...units.values()], state.images);
+    if (itemsByUnit.length === 1) {
+      if (scope === 'canvas') fit();
+      return;
+    }
     const boxes = itemsByUnit.map(selectionBounds);
     const viewport = arrangementViewport();
     const positions = arrangeBoxes(boxes, layout, (viewport.right - viewport.left) / (viewport.bottom - viewport.top));
@@ -470,7 +458,7 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     setImages(next); setSelected(additions[0].id); fit();
   }, [fit, remember, worldPoint, finishPlacement]);
 
-  // Reserve results beside the source (or its whole group), then push only collisions right.
+  // Start beside the source (or its whole group), then shift only the new batch right.
   const beginGeneration = useCallback((sourceId: string | undefined, count: number, ratio: string, fallback?: { name: string }) => {
     finishPlacement();
     const state = live.current, existingSource = state.images.find(item => item.id === sourceId);
@@ -490,16 +478,16 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     const anchor = selectionBounds(source.groupId ? state.images.filter(image => image.groupId === source.groupId) : [source]);
     const gap = 40, x = anchor.x + anchor.width + gap, y = anchor.y;
     const batchId = crypto.randomUUID();
-    const additions: CanvasImage[] = Array.from({ length: count }, (_, index) => ({
+    const additions = placeResultBatch(state.images, Array.from({ length: count }, (_, index): CanvasImage => ({
       id: crypto.randomUUID(), addedAt: nextCanvasTime(), name: `${source.name} · ${index + 1}`, image: source.image, url: source.url,
       generationParentId: source.id, generationRootId: source.generationRootId ?? source.id,
-      generationRootAddedAt: source.generationRootAddedAt ?? source.addedAt ?? legacyImageOrder.current.get(source.id) ?? 0,
+      generationRootAddedAt: source.generationRootAddedAt ?? source.addedAt ?? 0,
       generationBatchId: batchId, generationIndex: index, origin: 'generated',
       x: x + index * (width + gap), y,
       width, height, generating: true, fit: 'cover',
-    }));
+    })));
     remember(state.images);
-    const next = [...makeRoomForResults(state.images, source, additions), ...additions];
+    const next = [...state.images, ...additions];
     animatePlacement(next);
     return additions;
   }, [remember, finishPlacement, animatePlacement]);
@@ -721,5 +709,5 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     return () => { canvas.removeEventListener('pointerenter', move); canvas.removeEventListener('pointerleave', leave); canvas.removeEventListener('contextmenu', context); stage.removeEventListener('wheel', wheel, true); canvas.removeEventListener('pointerdown', down); canvas.removeEventListener('pointermove', move); canvas.removeEventListener('pointerup', up); canvas.removeEventListener('pointercancel', up); window.removeEventListener('keydown', keydown); window.removeEventListener('keyup', keyup); window.removeEventListener('blur', blur); };
   }, [fit, remember, removeSelected, undo, redo, worldPoint, zoomAt, copySelected, duplicate, paste, selectMany, setSelected, groupSelection, updateMoveCursor, finishPlacement]);
   useEffect(() => () => { urls.current.forEach(url => URL.revokeObjectURL(url)); }, []);
-  return { projectCover, isolationActive: isolation.amount > 0 && images.some(image => image.id === isolation.id && !image.generating), locked, setInteractionLocked, setQuickEditing, blankClickVersion, setIsolatedImageId, editingViewport, focusImage, selectedIds, marquee, selectMany, updateImages, groupSelection, alignSelection, contextMenu, setContextMenu, copySelected, paste, reorder, setCover, resetCover, downloadImage, size, mode, effectiveMode, setMode, beginEdit, updateSelected, duplicate, arrange, redo, canUndo: history.current.length > 0, canRedo: future.current.length > 0, historyVersion, canvasRef, images, selected, setSelected, camera, panning, upload, addImages, beginGeneration, beginResultRetry, finishGeneration, zoomAt, navigateMinimap, fit, returnToContent, removeSelected, undo };
+  return { projectCover, isolationActive: isolation.amount > 0 && images.some(image => image.id === isolation.id && !image.generating), locked, setInteractionLocked, setQuickEditing, blankClickVersion, setIsolatedImageId, editingViewport, focusImage, selectedIds, marquee, selectMany, updateImages, groupSelection, alignSelection, contextMenu, setContextMenu, copySelected, paste, reorder, setCover, resetCover, downloadImage, size, mode, effectiveMode, setMode, beginEdit, updateSelected, duplicate, arrange, redo, canUndo: !images.some(image => image.generating) && history.current.length > 0, canRedo: !images.some(image => image.generating) && future.current.length > 0, historyVersion, canvasRef, images, selected, setSelected, camera, panning, upload, addImages, beginGeneration, beginResultRetry, finishGeneration, zoomAt, navigateMinimap, fit, returnToContent, removeSelected, undo };
 }

@@ -48,7 +48,7 @@ function packBoxes(boxes: Bounds[], aspectRatio: number) {
     let usedWidth = 0, usedHeight = 0;
     let previous = { x: -Infinity, y: -Infinity };
     for (const item of items) {
-      // Never backfill an earlier reading position and split a source/result sequence.
+      // Never backfill an earlier reading position and change the layer-based sequence.
       // Topmost, then leftmost available position keeps the result predictable.
       const space = free.filter(rect => rect.width >= item.width && rect.height >= item.height
           && (rect.y > previous.y || rect.y === previous.y && rect.x >= previous.x))
