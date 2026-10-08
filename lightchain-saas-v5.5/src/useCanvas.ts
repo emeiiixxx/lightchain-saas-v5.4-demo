@@ -309,14 +309,18 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     const next = state.images.map(item => item.id === state.selected ? { ...item, ...patch } : item);
     live.current.images = next; setImages(next);
   }, [remember, finishPlacement]);
-  const insertCopies = useCallback((items: CanvasImage[]) => {
+  const insertCopies = useCallback((items: CanvasImage[], center?: Point) => {
     if (lock.current) return;
     finishPlacement();
     if (!items.length) return;
     const state = live.current, groups = new Map<string, { id: string; time: number }>();
+    const bounds = selectionBounds(items);
+    const offset = center
+      ? { x: center.x - bounds.x - bounds.width / 2, y: center.y - bounds.y - bounds.height / 2 }
+      : { x: 32, y: 32 };
     const clones = items.map(item => {
       if (item.groupId && !groups.has(item.groupId)) groups.set(item.groupId, { id: crypto.randomUUID(), time: nextCanvasTime() });
-      return { ...item, cover: false, origin: 'copy' as const, uploadedAt: undefined, id: crypto.randomUUID(), addedAt: nextCanvasTime(), generatedAt: undefined, generationParentId: undefined, generationRootId: undefined, generationRootAddedAt: undefined, generationBatchId: undefined, generationIndex: undefined, groupId: item.groupId ? groups.get(item.groupId)!.id : undefined, groupedAt: item.groupId ? groups.get(item.groupId)!.time : undefined, x: item.x + 32, y: item.y + 32 };
+      return { ...item, cover: false, origin: 'copy' as const, uploadedAt: undefined, id: crypto.randomUUID(), addedAt: nextCanvasTime(), generatedAt: undefined, generationParentId: undefined, generationRootId: undefined, generationRootAddedAt: undefined, generationBatchId: undefined, generationIndex: undefined, groupId: item.groupId ? groups.get(item.groupId)!.id : undefined, groupedAt: item.groupId ? groups.get(item.groupId)!.time : undefined, x: item.x + offset.x, y: item.y + offset.y };
     });
     remember(state.images); const next = [...state.images, ...clones]; live.current.images = next; setImages(next);
     selectMany(clones.map(item => item.id)); return clones;
@@ -327,7 +331,14 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     const items = live.current.images.filter(item => live.current.selectedIds.includes(item.id));
     if (items.length) { copied.current = items.map(item => ({ ...item })); notify('已复制，可在画布中粘贴', 'success'); }
   }, [notify, finishPlacement]);
-  const paste = useCallback(() => { const clones = insertCopies(copied.current); if (clones) copied.current = clones; }, [insertCopies]);
+  const paste = useCallback(() => {
+    const { size } = live.current;
+    const pointer = hoverPoint.current;
+    const { left, right } = editingViewport();
+    const point = pointer && pointer.x >= 0 && pointer.x <= size.width && pointer.y >= 0 && pointer.y <= size.height
+      ? pointer : { x: (left + right) / 2, y: size.height / 2 };
+    insertCopies(copied.current, worldPoint(point));
+  }, [insertCopies, editingViewport, worldPoint]);
   const updateImages = useCallback((patches: (Partial<CanvasImage> & { id: string })[], record = false) => {
     if (lock.current) return;
     finishPlacement();
