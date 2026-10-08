@@ -354,7 +354,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
           event.preventDefault(); const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button'));
           const index = buttons.indexOf(event.target as HTMLButtonElement);
           buttons[event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length]?.focus();
-        }}>{canvasLayouts.map(layout => <Button key={layout.value} role="menuitem" onClick={() => { board.arrange(layout.value); setMenu(null); board.canvasRef.current?.focus({ preventScroll: true }); }}><span>{locale === 'en' ? layout.en : locale === 'ja' ? layout.ja : layout.label}</span></Button>)}</div>}
+        }}>{canvasLayouts.map(layout => <Button key={layout.value} role="menuitem" onClick={() => { board.arrange(layout.value); setMenu(null); board.canvasRef.current?.focus({ preventScroll: true }); }}><Icon name={`canvas-arrange-${layout.value}`} size={20} /><span>{locale === 'en' ? layout.en : locale === 'ja' ? layout.ja : layout.label}</span></Button>)}</div>}
       </div>
       <div className="canvas-map-control">
         <div className="round-tool wb-surface"><Button className="workbench-tool" disabled={!!localEdit} aria-label={t('画布小地图')} aria-pressed={minimapOpen} aria-expanded={minimapOpen && !board.locked} aria-controls="canvas-minimap" onClick={() => setMinimapOpen(value => !value)}><Icon name="canvas-minimap" size={24} /></Button></div>
