@@ -256,15 +256,15 @@ html:not([lang='zh-CN']) .upload-hover-copy { max-width: 640px; padding: 0 16px;
 .agent-send-glyph > .icon { position: absolute; inset: 20.31% 26.56%; width: auto !important; height: auto !important; }
 
 /* Image context menu: 36:2471, download 2:16302, layer order 2:16524. */
-.image-context-menu { position: fixed; z-index: 60; display: flex; flex-direction: column; gap: 8px; padding: 8px; border: 1px solid var(--border-weak); border-radius: var(--radius-l); background: var(--surface-secondary); box-shadow: var(--shadow-l); color: var(--text-secondary); pointer-events: auto; }
+.image-context-menu { width: max-content; min-width: min(224px, calc(100vw - 16px)); max-width: calc(100vw - 16px); position: fixed; z-index: 60; display: flex; flex-direction: column; gap: 8px; padding: 8px; border: 1px solid var(--border-weak); border-radius: var(--radius-l); background: var(--surface-secondary); box-shadow: var(--shadow-l); color: var(--text-secondary); pointer-events: auto; }
 .image-context-menu[tabindex='-1']:focus { outline: none; }
-.image-context-menu > button { display: flex; align-items: center; gap: 8px; width: 100%; height: 32px; flex: none; padding: 0 8px; border-radius: var(--radius-base); font-size: 14px; font-weight: 400; line-height: 20px; text-align: left; white-space: nowrap; }
-.image-context-menu > button > span:not(.icon):not(.image-context-new-badge) { flex: 1; }
+.image-context-menu > button { display: flex; align-items: center; gap: 8px; width: auto; align-self: stretch; min-height: 32px; height: auto; flex: none; padding: 0 8px; border-radius: var(--radius-base); font-size: 14px; font-weight: 400; line-height: 20px; text-align: left; white-space: nowrap; }
+.image-context-menu > button > span:not(.icon):not(.image-context-new-badge) { flex: 1; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
 .image-context-menu > button:is(:hover, :focus-visible, [aria-expanded='true']):not(:disabled) { color: var(--text-primary); background: var(--state-hover); }
 .image-context-menu > button:disabled { color: var(--text-disabled); }
 .image-context-menu kbd { flex: none; display: flex; align-items: center; justify-content: center; padding: 0 4px; height: 20px; border-radius: 6px; background: var(--state-default); color: var(--text-placeholder); font: inherit; font-size: 12px; font-weight: 500; line-height: 16px; }
 .image-context-menu > button > .image-context-new-badge { flex: none; display: inline-flex; align-items: center; justify-content: center; width: max-content; height: 20px; padding: 0 8px; border-radius: 999px; background: var(--brand-gradient-chat); color: var(--text-on-brand-black); font-size: 12px; font-weight: 500; line-height: 16px; white-space: nowrap; }
-.image-context-submenu { z-index: 61; }
+.image-context-menu.image-context-submenu { z-index: 61; width: max-content; min-width: min(144px, calc(100vw - 16px)); }
 .image-context-submenu::before { content: ''; position: absolute; right: 100%; top: 0; width: 6px; height: 100%; }
 .image-context-submenu.opens-left::before { left: 100%; right: auto; }
 

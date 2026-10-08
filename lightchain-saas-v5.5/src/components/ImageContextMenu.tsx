@@ -22,18 +22,43 @@ export function ImageContextMenu({ board, onUpload }: { board: Board; onUpload: 
   const [submenu, setSubmenu] = useState<'download' | 'order' | null>(null);
   const sub = usePresence(submenu);
   const root = useRef<HTMLDivElement>(null);
+  const subPanel = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [subPosition, setSubPosition] = useState({ x: 0, y: 0, left: false });
   const close = () => board.setContextMenu(null);
-  const width = locale === 'zh-CN' ? 224 : 280;
-  const subWidth = sub.value === 'download' || locale === 'zh-CN' ? 144 : 208;
   const mac = /Mac|iPhone|iPad/.test(navigator.platform);
   const modifier = mac ? '⌘' : 'Ctrl';
   useLayoutEffect(() => {
-    if (!shown.value || !root.current) return;
-    const rect = root.current.getBoundingClientRect();
-    setPosition({ x: Math.max(8, Math.min(shown.value.x, window.innerWidth - rect.width - 8)), y: Math.max(8, Math.min(shown.value.y, window.innerHeight - rect.height - 8)) });
+    const menu = root.current, anchor = shown.value;
+    if (!menu || !anchor) return;
+    const place = () => {
+      const x = Math.max(8, Math.min(anchor.x, window.innerWidth - menu.offsetWidth - 8));
+      const y = Math.max(8, Math.min(anchor.y, window.innerHeight - menu.offsetHeight - 8));
+      setPosition(current => current.x === x && current.y === y ? current : { x, y });
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(menu);
+    return () => observer.disconnect();
   }, [shown.value, locale]);
+  useLayoutEffect(() => {
+    const menu = root.current, panel = subPanel.current;
+    const button = menu?.querySelector<HTMLButtonElement>(`[data-sub="${sub.value}"]`);
+    if (!menu || !panel || !button) return;
+    const place = () => {
+      const edge = menu.getBoundingClientRect(), anchor = button.getBoundingClientRect();
+      const width = panel.offsetWidth, height = panel.offsetHeight, overlap = 4;
+      const rightSpace = window.innerWidth - edge.right;
+      const left = edge.right + width - overlap > window.innerWidth - 8 && edge.left > rightSpace;
+      const x = Math.max(8, Math.min(left ? edge.left - width + overlap : edge.right - overlap, window.innerWidth - width - 8));
+      const y = Math.max(8, Math.min(anchor.top - 8, window.innerHeight - height - 8));
+      setSubPosition(current => current.x === x && current.y === y && current.left === left ? current : { x, y, left });
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(menu); observer.observe(panel);
+    return () => observer.disconnect();
+  }, [sub.value, locale, position]);
   useEffect(() => {
     setSubmenu(null);
     if (!board.contextMenu) return;
@@ -46,15 +71,7 @@ export function ImageContextMenu({ board, onUpload }: { board: Board; onUpload: 
     return () => { window.removeEventListener('pointerdown', dismiss); window.removeEventListener('resize', resize); };
   }, [board.contextMenu]);
   const perform = (action: () => void) => { action(); close(); board.canvasRef.current?.focus({ preventScroll: true }); };
-  const openSub = (kind: 'download' | 'order', button: HTMLElement) => {
-    const rect = button.getBoundingClientRect();
-    const edge = root.current!.getBoundingClientRect();
-    const targetWidth = kind === 'download' || locale === 'zh-CN' ? 144 : 208;
-    const overlap = 4;
-    const left = edge.right + targetWidth - overlap > window.innerWidth - 8;
-    setSubPosition({ x: left ? edge.left - targetWidth + overlap : edge.right - overlap, y: Math.max(8, Math.min(rect.top - 8, window.innerHeight - 168 - 8)), left });
-    setSubmenu(kind);
-  };
+  const openSub = (kind: 'download' | 'order') => setSubmenu(kind);
   const keys = (e: KeyboardEvent<HTMLDivElement>) => {
     e.stopPropagation();
     if (shown.value?.id && (e.metaKey || e.ctrlKey) && ['c', 'd', 'v'].includes(e.key.toLowerCase())) {
@@ -66,7 +83,7 @@ export function ImageContextMenu({ board, onUpload }: { board: Board; onUpload: 
     const target = e.target as HTMLElement;
     const menu = target.closest('[role="menu"]'); if (!menu) return;
     if (e.key === 'ArrowLeft' && menu !== root.current) { e.preventDefault(); setSubmenu(null); root.current?.querySelector<HTMLButtonElement>(`[data-sub="${submenu}"]`)?.focus(); return; }
-    if (e.key === 'ArrowRight' && target.dataset.sub) { e.preventDefault(); openSub(target.dataset.sub as 'download' | 'order', target); requestAnimationFrame(() => root.current?.querySelector<HTMLButtonElement>('.image-context-submenu button')?.focus()); return; }
+    if (e.key === 'ArrowRight' && target.dataset.sub) { e.preventDefault(); openSub(target.dataset.sub as 'download' | 'order'); requestAnimationFrame(() => root.current?.querySelector<HTMLButtonElement>('.image-context-submenu button')?.focus()); return; }
     if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) {
       e.preventDefault(); const buttons = Array.from(menu.querySelectorAll<HTMLButtonElement>('button')).filter(b => b.closest('[role="menu"]') === menu && !b.disabled);
       const index = buttons.indexOf(target as HTMLButtonElement);
@@ -75,10 +92,10 @@ export function ImageContextMenu({ board, onUpload }: { board: Board; onUpload: 
     }
   };
   if (!shown.value) return null;
-  if (shown.value.id === null) return <div ref={root} className="image-context-menu" role="menu" tabIndex={-1} aria-label={t('上传图片')} data-canvas-ui data-workbench-menu data-phase={shown.phase} inert={shown.phase === 'exit'} style={{ left: position.x, top: position.y, width }} onKeyDown={keys} onContextMenu={event => event.preventDefault()}>
+  if (shown.value.id === null) return <div ref={root} className="image-context-menu" role="menu" tabIndex={-1} aria-label={t('上传图片')} data-canvas-ui data-workbench-menu data-phase={shown.phase} inert={shown.phase === 'exit'} style={{ left: position.x, top: position.y }} onKeyDown={keys} onContextMenu={event => event.preventDefault()}>
     <button type="button" role="menuitem" onClick={() => { close(); onUpload(); }}><Icon name="canvas-imgIconSystem5" size={20} /><span>{t('上传图片')}</span></button>
   </div>;
-  const subTrigger = (kind: 'download' | 'order', label: string, icon: string) => <button type="button" role="menuitem" data-sub={kind} aria-haspopup="menu" aria-expanded={submenu === kind} onPointerEnter={e => openSub(kind, e.currentTarget)} onClick={e => openSub(kind, e.currentTarget)}><Icon name={icon} size={20} /><span>{t(label)}</span><Icon name="context-img" size={16} /></button>;
+  const subTrigger = (kind: 'download' | 'order', label: string, icon: string) => <button type="button" role="menuitem" data-sub={kind} aria-haspopup="menu" aria-expanded={submenu === kind} onPointerEnter={() => openSub(kind)} onClick={() => openSub(kind)}><Icon name={icon} size={20} /><span>{t(label)}</span><Icon name="context-img" size={16} /></button>;
   const item = (label: string, icon: string, action: () => void, shortcut?: string) => <button type="button" role="menuitem" onPointerEnter={() => setSubmenu(null)} onFocus={() => setSubmenu(null)} onClick={() => perform(action)}><Icon name={icon} size={20} /><span>{t(label)}</span>{shortcut && <kbd>{shortcut}</kbd>}</button>;
   const isManualCover = board.images.some(image => image.id === shown.value?.id && image.cover);
   const updateProjectCover = () => {
@@ -92,7 +109,7 @@ export function ImageContextMenu({ board, onUpload }: { board: Board; onUpload: 
     });
   };
   const index = board.images.findIndex(image => image.id === board.selected);
-  return <div ref={root} className="image-context-menu" role="menu" tabIndex={-1} aria-label={t('图片右键菜单')} data-canvas-ui data-workbench-menu data-phase={shown.phase} inert={shown.phase === 'exit'} style={{ left: position.x, top: position.y, width }} onKeyDown={keys} onContextMenu={e => e.preventDefault()}>
+  return <div ref={root} className="image-context-menu" role="menu" tabIndex={-1} aria-label={t('图片右键菜单')} data-canvas-ui data-workbench-menu data-phase={shown.phase} inert={shown.phase === 'exit'} style={{ left: position.x, top: position.y }} onKeyDown={keys} onContextMenu={e => e.preventDefault()}>
     {subTrigger('download', '下载', 'context-imgLeftIcon')}
     <div className="element-menu-divider" role="separator" />
     {subTrigger('order', '图层顺序', 'context-imgLeftIcon1')}
@@ -101,7 +118,7 @@ export function ImageContextMenu({ board, onUpload }: { board: Board; onUpload: 
     <button type="button" role="menuitem" onPointerEnter={() => setSubmenu(null)} onFocus={() => setSubmenu(null)} onClick={updateProjectCover}><Icon name="context-project-cover" size={20} /><span>{t(isManualCover ? '恢复默认封面' : '设为项目封面')}</span>{!coverUsed && !isManualCover && <span className="image-context-new-badge">NEW</span>}</button>
     <div className="element-menu-divider" role="separator" />
     {item('删除', 'context-imgLeftIcon5', board.removeSelected, '←/del')}
-    {sub.value && <div className={`image-context-menu image-context-submenu ${sub.value === 'download' ? 'element-design-menu download-format-menu' : ''} ${subPosition.left ? 'opens-left' : ''}`} role="menu" aria-label={t(sub.value === 'download' ? '下载格式' : '图层顺序')} data-phase={sub.phase} inert={sub.phase === 'exit'} style={{ left: Math.max(8, subPosition.x), top: subPosition.y, width: subWidth }}>
+    {sub.value && <div ref={subPanel} className={`image-context-menu image-context-submenu ${sub.value === 'download' ? 'element-design-menu download-format-menu' : ''} ${subPosition.left ? 'opens-left' : ''}`} role="menu" aria-label={t(sub.value === 'download' ? '下载格式' : '图层顺序')} data-phase={sub.phase} inert={sub.phase === 'exit'} style={{ left: Math.max(8, subPosition.x), top: subPosition.y }}>
       {sub.value === 'download' ? <DownloadFormatOptions onSelect={format => perform(() => { void board.downloadImage(format); })} /> : ([['front', '移到顶层'], ['up', '上移一层'], ['down', '下移一层'], ['back', '移到底层']] as const).map(([direction, label]) => <button type="button" role="menuitem" key={direction} disabled={direction === 'front' || direction === 'up' ? index === board.images.length - 1 : index <= 0} onClick={() => perform(() => board.reorder(direction))}>{t(label)}</button>)}
     </div>}
   </div>;
