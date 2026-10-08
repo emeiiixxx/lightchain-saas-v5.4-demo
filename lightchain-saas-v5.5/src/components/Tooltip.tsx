@@ -45,7 +45,7 @@ export function TooltipHost() {
       const to = anchorOf(e.relatedTarget);
       if (!from || from === to) return;
       // Keep one tooltip mounted while the pointer crosses the toolbar's button gaps.
-      const toolbar = from.closest('.element-toolbar');
+      const toolbar = from.closest<HTMLElement>('.element-toolbar');
       if (toolbar && withinToolbar(toolbar, e)) return;
       hide();
     };
