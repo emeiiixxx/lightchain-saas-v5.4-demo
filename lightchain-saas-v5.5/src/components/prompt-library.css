@@ -108,6 +108,7 @@
 .prompt-cover-upload {display:flex;align-items:center;gap:var(--spacing-base);}
 .prompt-cover-preview {position:relative;display:flex;flex:none;flex-direction:column;align-items:center;justify-content:center;gap:var(--spacing-xs);width:120px;height:120px;aspect-ratio:1;padding:0;overflow:hidden;border:1px dashed var(--border-weak);border-radius:var(--radius-l);background:var(--control-fill-hover);color:var(--text-tertiary);font-size:12px;line-height:20px;}
 .prompt-cover-preview[data-has-cover="true"] {border-style:solid;}
+button.prompt-cover-preview {padding:0 16px;border-style:solid;background:var(--state-default);color:var(--text-secondary);font-weight:400;line-height:16px;}
 button.prompt-cover-preview:hover:not(:disabled) {background:var(--state-hover);border-color:var(--border-strong);color:var(--text-primary);}
 .prompt-cover-upload.is-dragging .prompt-cover-preview {background:var(--alpha-brand-20);border-color:var(--border-brand);}
 .prompt-cover-preview img {display:block;width:100%;height:100%;object-fit:contain;}

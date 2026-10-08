@@ -56,7 +56,7 @@ export function PromptCoverField({ value, uploads, onUpload, onChange, onBusy, o
             <IconButton size="m" icon="library-promptTrash" aria-label={t('移除封面图')} disabled={busy} onClick={() => { onChange(undefined); requestAnimationFrame(() => emptyButton.current?.focus()); }}/>
           </div>
         </div> : <button ref={emptyButton} type="button" className="prompt-cover-preview" aria-label={t('上传封面图')} disabled={busy} onClick={() => setPickerOpen(true)}>
-          <Icon name="library-cutoutPlus" size={24}/><span>{t('上传封面图')}</span>
+          <Icon name="prompt-cover-add-image" size={24}/><span>{t('上传图片')}</span>
         </button>}
         {busy && <p className="prompt-cover-status" role="status">{t('正在读取封面图')}</p>}
       </div>
