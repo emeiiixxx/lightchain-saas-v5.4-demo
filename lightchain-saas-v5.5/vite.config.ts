@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
-const pagesBase = '/lightchain-saas-v5.5-demo/';
+const pagesBase = '/lightchain-saas-v5.4-demo/';
 
 export default defineConfig(({ command }) => ({
   base: command === 'build' ? pagesBase : '/',

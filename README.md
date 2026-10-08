@@ -1,6 +1,6 @@
-# Lightchain SaaS v5.5 Demo
+# Lightchain SaaS v5.4 Demo
 
-[打开在线 Demo](https://emeiiixxx.github.io/lightchain-saas-v5.5-demo/)
+[打开在线 Demo](https://emeiiixxx.github.io/lightchain-saas-v5.4-demo/)
 
 本项目只包含交互 Demo 的代码、示例素材和 GitHub Pages 部署配置。
 

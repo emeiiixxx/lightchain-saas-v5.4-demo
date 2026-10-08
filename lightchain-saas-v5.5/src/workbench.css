@@ -408,7 +408,7 @@ html:not([lang='zh-CN']) .shortcuts-panel { width: 400px; }
 .stroke-color-row :is(.hex-field:focus, .property-number:focus-within) { border-color: transparent; background: var(--state-default); }
 .stroke-color-panel :is(.hex-field:focus, .property-number:focus-within) { border-color: transparent; background: transparent; }
 
-/* Canvas/ToolInputMenu and ToolMediaRow — v5.5 node 2:3651, Beta semantics. */
+/* Canvas/ToolInputMenu and ToolMediaRow — v5.4 node 2:3651, Beta semantics. */
 .quick-edit-input { display: contents; }
 .local-edit-composer { display: flex; flex-direction: column; gap: 8px; padding: 8px; border: 1px solid var(--border-weak); border-radius: 32px; background: var(--surface-secondary); }
 .local-edit-header { display: flex; align-items: center; gap: 8px; padding: 0 4px; min-height: 40px; }

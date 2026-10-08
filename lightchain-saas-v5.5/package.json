@@ -1,6 +1,6 @@
 {
-  "name": "lightchain-saas-v5.5",
-  "version": "5.5.0",
+  "name": "lightchain-saas-v5.4",
+  "version": "5.4.0",
   "private": true,
   "type": "module",
   "scripts": { "dev": "vite --host 127.0.0.1 --port 5510", "build": "tsc -b && vite build", "preview": "vite preview --host 127.0.0.1 --port 5511" },

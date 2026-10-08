@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useLocale } from '../LocaleContext';
 import { Button, Divider, Icon } from './ui';
 
-// v5.3 Canvas/ProjectPanel, with the v5.5 workspace artwork from Figma 2:13785.
+// v5.3 Canvas/ProjectPanel, with the v5.4 workspace artwork from Figma 2:13785.
 export function ProjectPanel({ name, onNameChange, onBack }: { name: string; onNameChange: (name: string) => void; onBack: () => void }) {
   const { t } = useLocale();
   const nameInput = useRef<HTMLInputElement>(null);

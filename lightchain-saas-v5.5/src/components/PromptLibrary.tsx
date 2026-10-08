@@ -1,4 +1,4 @@
-// Adapted from the v5.3 PromptTools component; v5.5 adds optional prompt covers.
+// Adapted from the v5.3 PromptTools component; v5.4 adds optional prompt covers.
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { Button, Icon, IconButton } from './ui';
 import { useLocale } from '../LocaleContext';
