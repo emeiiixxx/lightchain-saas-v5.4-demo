@@ -20,8 +20,8 @@ export default function App() {
   const [title, setTitle] = useState('Untitle');
   const [panel, setPanel] = useState(false);
   const [modal, setModal] = useState<'help' | 'support' | 'points' | 'project' | 'upload' | null>(null);
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-  useLayoutEffect(() => { document.documentElement.dataset.theme = theme; document.documentElement.style.colorScheme = theme; }, [theme]);
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => { try { return localStorage.getItem('lightchain-theme') === 'light' ? 'light' : 'dark'; } catch { return 'dark'; } });
+  useLayoutEffect(() => { document.documentElement.dataset.theme = theme; document.documentElement.style.colorScheme = theme; try { localStorage.setItem('lightchain-theme', theme); } catch { /* The current session still switches theme. */ } }, [theme]);
   const [toast, setToast] = useState<ToastNotice | null>(null);
   const [uploads, setUploads] = useState<LibraryImage[]>([]);
   const uploadUrls = useRef(new Set<string>());

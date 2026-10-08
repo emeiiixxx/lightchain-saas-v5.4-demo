@@ -104,7 +104,7 @@ export const workspaceCopy: Record<string, readonly [string, string]> = {
 '图片缩略图': ['Image thumbnails', '画像サムネイル'],
 '无需修改，Demo 不作展示': ['No changes required. Not shown in this demo.', '変更不要のため、Demoでは表示しません'],
 '款式 - 款式裂变': ['Garment - Style variations', 'スタイル - バリエーション'],
-'款式 - 局部修改有prompt示例': ['Garment - Prompt-based edit example', 'スタイル - プロンプト編集例'],
+'款式 - 局部修改': ['Garment - Local edit', 'スタイル - 部分編集'],
 '服装图': ['Garment image', '服の画像'], '参考图': ['Reference image', '参考画像'],
 '连衣裙': ['Dress', 'ワンピース'], '深V领': ['Deep V-neck', '深いVネック'],
 '前中系带': ['Front tie', 'フロントリボン'], '短款长度': ['Short length', 'ショート丈'],

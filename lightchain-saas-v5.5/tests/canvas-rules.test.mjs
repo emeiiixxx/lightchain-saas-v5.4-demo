@@ -1,0 +1,43 @@
+import { build } from 'esbuild';
+import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+const directory = await mkdtemp(join(tmpdir(), 'lightchain-rules-'));
+try {
+  const file = join(directory, 'rules.mjs');
+  await build({ stdin: { contents: `export * from './src/generation-placement'; export * from './src/canvas-arrangement'; export * from './src/canvas-order'; export * from './src/project-cover';`, resolveDir: process.cwd() }, bundle: true, platform: 'node', format: 'esm', outfile: file });
+  const { placeResultBatch, arrangeBoxes, orderArrangementUnits, resolveProjectCover } = await import(pathToFileURL(file).href);
+  const image = (id, x=0, y=0, width=100, height=100, extra={}) => ({ id, x, y, width, height, url:'fixture', name:id, ...extra });
+  const source = image('source');
+  const upper = image('upper',140,-80,100,120);
+  const lower = image('lower',380,80,100,120);
+  const pending = image('pending',520,0,100,100,{generating:true});
+  const existing=[source,upper,lower,pending];
+  const saved=JSON.stringify(existing);
+  const batch=[image('a',140),image('b',280)];
+  const placed=placeResultBatch(existing,batch);
+  assert.deepEqual(placed.map(i=>i.x),[660,800]);
+  assert.equal(JSON.stringify(existing),saved,'inserting a batch must not move existing objects');
+  assert.equal(placed[1].x-placed[0].x,140,'batch spacing preserved');
+  const group=[image('g1',140,-200,100,100,{groupId:'g'}),image('g2',340,200,100,100,{groupId:'g'})];
+  assert.equal(placeResultBatch(group,[image('r',240,0)])[0].x,480,'group interior remains reserved');
+  const a=image('a'),b=image('b',0,0,100,100,{groupId:'g'}),c=image('c',0,0,100,100,{groupId:'g'}),d=image('d');
+  assert.deepEqual(orderArrangementUnits([[a],[b,c],[d]],[a,b,c,d]).map(u=>u.map(i=>i.id)),[['d'],['b','c'],['a']]);
+  const boxes=[image('1',0,0,200,90),image('2',0,0,80,300),image('3',0,0,140,140),image('4',0,0,350,70)];
+  for(const layout of ['compact','horizontal','vertical']) {
+    const p=arrangeBoxes(boxes,layout,1.6);
+    assert.equal(p.length,boxes.length);
+    for(let i=1;i<p.length;i++)assert.ok(p[i].y>p[i-1].y||p[i].y===p[i-1].y&&p[i].x>p[i-1].x,'layer reading order preserved');
+    for(let i=0;i<p.length;i++)for(let j=i+1;j<p.length;j++)assert.ok(p[i].x+boxes[i].width<=p[j].x||p[j].x+boxes[j].width<=p[i].x||p[i].y+boxes[i].height<=p[j].y||p[j].y+boxes[j].height<=p[i].y,'no overlaps');
+  }
+  const generated=image('generated',0,0,100,100,{generatedAt:10});
+  const uploaded=image('uploaded',0,0,100,100,{addedAt:20});
+  const failed=image('failed',0,0,100,100,{addedAt:40,generationFailed:true});
+  assert.equal(resolveProjectCover([generated,uploaded,failed]).id,'uploaded');
+  assert.equal(resolveProjectCover([{...generated,cover:true},uploaded,failed]).id,'generated');
+  assert.equal(resolveProjectCover([generated,failed]).id,'generated');
+  assert.equal(resolveProjectCover([failed]),undefined);
+  console.log('PASS: collision chains, whole groups, layer order, three layouts and cover fallback');
+} finally { await rm(directory,{recursive:true,force:true}); }

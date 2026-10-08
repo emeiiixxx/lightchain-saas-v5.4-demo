@@ -23,7 +23,7 @@ import type { DownloadFormat } from '../download-image';
 export type LeftPanelTab = 'layers' | 'assets' | 'history';
 export type GenerationRecord = {
   supportsPrompt?: boolean; printMode?: 'position' | 'repeat';
-  sourceId?: string;
+  sourceId?: string; replayable?: boolean; resultRatio?: string;
   id: string; title: string; time: string; prompt?: string; pending?: boolean; generating?: boolean; failed?: boolean; ratio?: string; resolution?: string;
   tags: { label: string; image?: string; color?: string }[];
   count?: number;
@@ -38,12 +38,12 @@ const demoRecords: GenerationRecord[] = [
     tags: [{ label: '服装图', image: asset('imgImageAsset') }, ...['连衣裙', '深V领', '前中系带', '短款长度', '飘逸垂坠', '发散程度：中'].map(label => ({ label }))],
     images: ['imgAsset', 'imgAsset1', 'imgAsset2', 'imgAsset3', 'imgAsset4', 'imgAsset5', 'imgAsset6', 'imgImageAsset'].map(name => ({ url: asset(name), height: 120 })),
   },
-  { id: 'figma-fabric', title: '款式 - 局部修改有prompt示例', time: '2026-09-22 09:29', count: 1,
+  { id: 'figma-fabric', title: '款式 - 局部修改', time: '2026-09-22 09:29', count: 1,
     tags: [{ label: '服装图', image: asset('imgImageAsset1') }, { label: '参考图', image: asset('imgImageAsset2') }],
     prompt: '参考图2面料的颜色与质感，让图1的服装面料变成图2的质感与颜色，款式可以适当微调，比如领口可以更加V，袖口可以加长，保持灯笼袖，开口',
     images: [{ url: asset('imgAsset4'), height: 164 }],
   },
-  { id: 'figma-colors', title: '款式 - 局部修改有prompt示例', time: '2026-09-22 09:29', count: 2,
+  { id: 'figma-colors', title: '款式 - 局部修改', time: '2026-09-22 09:29', count: 2,
     tags: [{ label: '服装图', image: asset('imgImageAsset1') }],
     prompt: '帮我换两个颜色看看，紫色，小碎花',
     images: ['imgAsset5', 'imgAsset6'].map(name => ({ url: asset(name), height: 92 })),
@@ -52,7 +52,7 @@ const demoRecords: GenerationRecord[] = [
     tags: [{ label: '服装图', image: '/assets/color-change-source.png' }, { label: '#BB9CAC', color: '#BB9CAC' }, { label: '改色区域：全部' }],
     images: [{ url: '/assets/color-change-result.png', height: 92 }],
   },
-  { id: 'figma-color-custom', title: '颜色修改-拼接提示词不展示', time: '2026-09-22 09:29', count: 2, supportsPrompt: false,
+  { id: 'figma-color-custom', title: '颜色修改', time: '2026-09-22 09:29', count: 2, supportsPrompt: false,
     tags: [{ label: '服装图', image: '/assets/color-change-source.png' }, { label: '#BB9CAC', color: '#BB9CAC' }, { label: '改色区域：自定义' }],
     images: [{ url: '/assets/color-change-result.png', height: 92 }],
   },
@@ -79,12 +79,14 @@ const additionalDemoRecords: GenerationRecord[] = [4, 2, 1, 8, 4, 1, 2].map((cou
 });
 const failedDemoRecord: GenerationRecord = {
   ...demoRecords[0],
-  id: 'demo-partial-failure', time: '2026-09-22 09:29', count: 4, ratio: '1:1',
+  id: 'demo-partial-failure', time: '2026-09-22 09:29', count: 4, resultRatio: '92:120',
   images: ['imgAsset', 'imgAsset1', 'imgAsset2', 'imgAsset3'].map((name, index) => ({
     id: `demo-partial-result-${index}`, url: asset(name), height: 120,
     status: index === 2 ? 'failed' : 'success',
   })),
 };
+export const initialDemoRecords: GenerationRecord[] = [failedDemoRecord, ...demoRecords, ...additionalDemoRecords].map(record => ({ ...record, replayable: true, images: record.images.map((image, index) => ({ ...image, id: image.id ?? `${record.id}-result-${index}` })) }));
+
 const tabs = [
   { value: 'layers', label: '图层', en: 'Layers', ja: 'レイヤー', icon: 'generation-record-imgDefaultIcon' },
   { value: 'assets', label: '资产', en: 'Assets', ja: '素材', icon: 'generation-record-imgDefaultIcon1' },
@@ -95,7 +97,7 @@ export function CanvasLeftPanel({ tab, hasSelectedElement, onTabChange, onClose,
   hasSelectedElement: boolean; layersDisabled?: boolean;
   tab: LeftPanelTab | null; onTabChange: (tab: LeftPanelTab) => void; onClose: () => void;
   records: GenerationRecord[]; unread: boolean; uploads: LibraryImage[]; onUpload: (image: LibraryImage) => void; onNotify: Notify;
-  onRetryResult: (record: GenerationRecord, index: number, retry: () => void) => Promise<Omit<CanvasImage, 'x' | 'y'>>;
+  onRetryResult: (record: GenerationRecord, index: number) => Promise<Omit<CanvasImage, 'x' | 'y'>>;
   onRegenerate: (record: GenerationRecord) => void; onDeleteRecord: (id: string) => void; onDeleteResult: (id: string, index: number) => void;
 }) {
   const { t, locale } = useLocale();
@@ -112,8 +114,6 @@ export function CanvasLeftPanel({ tab, hasSelectedElement, onTabChange, onClose,
   const [preview, setPreview] = useState<{ image: Pick<CanvasImage, 'url' | 'name' | 'width' | 'height'>; record: GenerationRecord; index: number } | null>(null);
   const shownPreview = usePresence(preview);
   const previewRequest = useRef(0);
-  const [deletedDemoIds, setDeletedDemoIds] = useState<string[]>([]);
-  const [demoResultOverrides, setDemoResultOverrides] = useState<Record<string, GenerationRecord['images']>>({});
   const [deleteTarget, setDeleteTarget] = useState<{ kind: 'record'; record: GenerationRecord } | { kind: 'image'; record: GenerationRecord; index: number } | null>(null);
   const shownDelete = usePresence(deleteTarget);
   const retryingResults = useRef(new Set<string>());
@@ -146,7 +146,7 @@ export function CanvasLeftPanel({ tab, hasSelectedElement, onTabChange, onClose,
     const name = `${t(record.title)} ${index + 1}`;
     const request = ++previewRequest.current;
     if (result.status === 'failed' || result.status === 'generating') {
-      const [ratioWidth, ratioHeight] = (record.ratio ?? '1:1').split(':').map(Number);
+      const [ratioWidth, ratioHeight] = (record.resultRatio ?? (record.ratio && record.ratio !== 'auto' ? record.ratio : `92:${result.height}`)).split(':').map(Number);
       const ratio = Number.isFinite(ratioWidth) && Number.isFinite(ratioHeight) && ratioWidth > 0 && ratioHeight > 0
         ? ratioWidth / ratioHeight : 1;
       setPreview({ image: { url, name, width: 480 * ratio, height: 480 }, record, index });
@@ -157,31 +157,20 @@ export function CanvasLeftPanel({ tab, hasSelectedElement, onTabChange, onClose,
       if (request === previewRequest.current) setPreview({ image, record, index });
     } catch { if (request === previewRequest.current) { onNotify('图片加载失败，请重试', 'error'); if (closeOnError) setPreview(null); } }
   };
-  const allRecords = [...records, failedDemoRecord, ...demoRecords, ...additionalDemoRecords]
-    .filter(record => !deletedDemoIds.includes(record.id))
-    .map(record => demoResultOverrides[record.id] ? { ...record, images: demoResultOverrides[record.id] } : record);
-  const isDemoRecord = (id: string) => id === failedDemoRecord.id || demoRecords.some(record => record.id === id) || additionalDemoRecords.some(record => record.id === id);
+  const allRecords = records;
   const retryImage = async (record: GenerationRecord, index: number, returnToCanvas = false) => {
     const result = record.images[index];
     if (!result?.id || result.status !== 'failed' || retryingResults.current.has(result.id)) return;
     const resultId = result.id;
     retryingResults.current.add(resultId);
     if (returnToCanvas) { previewRequest.current++; setPreview(null); }
-    const updateResult = (status: 'failed' | 'generating' | 'success') => {
-      if (!isDemoRecord(record.id)) return;
-      setDemoResultOverrides(previous => ({ ...previous, [record.id]: (previous[record.id] ?? record.images)
-        .map(item => item.id === resultId ? { ...item, status } : item) }));
-    };
-    updateResult('generating');
     try {
-      const loaded = await onRetryResult(record, index, () => void retryImage(record, index));
+      const loaded = await onRetryResult(record, index);
       if (!mounted.current) return;
-      updateResult('success');
       setPreview(previous => previous?.record.id === record.id && previous.record.images[previous.index]?.id === resultId
         ? { ...previous, image: loaded } : previous);
     } catch {
       if (!mounted.current) return;
-      updateResult('failed');
       onNotify('生成失败，请重试', 'error');
     } finally {
       retryingResults.current.delete(resultId);
@@ -192,18 +181,14 @@ export function CanvasLeftPanel({ tab, hasSelectedElement, onTabChange, onClose,
     : null;
   const previewResult = previewRecord?.images[shownPreview.value?.index ?? 0];
   const deleteRecord = (record: GenerationRecord) => {
-    if (isDemoRecord(record.id)) setDeletedDemoIds(previous => [...previous, record.id]);
-    else onDeleteRecord(record.id);
+    onDeleteRecord(record.id);
     if (preview?.record.id === record.id) { previewRequest.current++; setPreview(null); }
   };
   const deleteResult = (record: GenerationRecord, index: number) => {
     const current = allRecords.find(item => item.id === record.id);
     if (!current || !current.images[index]) return;
     const images = current.images.filter((_, imageIndex) => imageIndex !== index);
-    if (isDemoRecord(record.id)) {
-      setDemoResultOverrides(previous => ({ ...previous, [record.id]: images }));
-      if (!images.length) setDeletedDemoIds(previous => [...previous, record.id]);
-    } else onDeleteResult(record.id, index);
+    onDeleteResult(record.id, index);
     previewRequest.current++;
     if (!images.length) setPreview(null);
     else void openImage({ ...current, images }, Math.min(index, images.length - 1), true);
@@ -235,7 +220,7 @@ export function CanvasLeftPanel({ tab, hasSelectedElement, onTabChange, onClose,
         </div> : <div className="generation-record-list">
           {allRecords.map((record, index) => <article className="generation-record" key={record.id}>
             <div className="generation-record-info">
-              <div className="generation-record-heading"><div className="generation-record-heading-text"><h3>{t(record.title)}</h3><time>{record.time}</time></div><TaskRecordMoreMenu canDownload={record.images.some(image => image.status !== 'failed' && image.status !== 'generating')} canRegenerate={!record.generating && !record.pending} onDownload={format => void downloadGroup(record, format)} onRegenerate={() => onRegenerate(record)} onDelete={() => setDeleteTarget({ kind: 'record', record })} /></div>
+              <div className="generation-record-heading"><div className="generation-record-heading-text"><h3>{t(record.title)}</h3><time>{record.time}</time></div><TaskRecordMoreMenu canDownload={record.images.some(image => image.status !== 'failed' && image.status !== 'generating')} canRegenerate={!record.generating && !record.pending} showRegenerate={record.replayable === true} onDownload={format => void downloadGroup(record, format)} onRegenerate={() => onRegenerate(record)} onDelete={() => setDeleteTarget({ kind: 'record', record })} /></div>
               <GenerationRecordTags record={record} active={tab === 'history'} />
               {recordHasPrompt(record) && <div className="generation-record-prompt">
                 <p data-tooltip={t(record.prompt!)} data-tooltip-truncated-only>{t(record.prompt!)}</p>
@@ -250,7 +235,7 @@ export function CanvasLeftPanel({ tab, hasSelectedElement, onTabChange, onClose,
               {Array.from({ length: record.count ?? 1 }, (_, resultIndex) => <div className="generation-record-loading" key={resultIndex} style={{ height: record.resultHeight ?? 92 }}><GeneratingPlaceholder style={{ inset: 0 }} /></div>)}
             </div>}
             {!record.generating && !record.pending && !record.failed && !record.images.length && <p className="text-xs text-muted">{t('暂无结果图片')}</p>}
-            {!!record.images.length && <div className={`generation-record-images ${record.images.length >= 4 ? 'generation-record-images--four' : ''}`}>
+            {!record.generating && !!record.images.length && <div className={`generation-record-images ${record.images.length >= 4 ? 'generation-record-images--four' : ''}`}>
               {record.images.map((item, imageIndex) => <div className="generation-record-result" key={item.id ?? `${item.url}-${imageIndex}`} style={{ height: item.height }}>
                 {item.status === 'failed' || item.status === 'generating'
                   ? <TaskResultPlaceholder status={item.status} onOpen={() => void openImage(record, imageIndex)} onRetry={item.status === 'failed' ? () => retryImage(record, imageIndex) : undefined} />

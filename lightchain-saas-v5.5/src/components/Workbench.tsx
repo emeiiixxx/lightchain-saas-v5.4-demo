@@ -16,7 +16,7 @@ import { ImageContextMenu } from './ImageContextMenu';
 import { ShortcutsPanel } from './ShortcutsPanel';
 import { QuickEditComposer, createQuickEditDraft, type QuickEditDraft, type CanvasEditTool } from './QuickEditComposer';
 import { StrokeColorPicker } from './StrokeColorPicker';
-import { CanvasLeftPanel, type LeftPanelTab, type GenerationRecord } from './CanvasLeftPanel';
+import { initialDemoRecords, CanvasLeftPanel, type LeftPanelTab, type GenerationRecord } from './CanvasLeftPanel';
 import { type CanvasImage, useCanvas } from '../useCanvas';
 import { TaskResultPlaceholder } from './TaskResultPlaceholder';
 import { GeneratingPlaceholder } from './GeneratingPlaceholder';
@@ -100,7 +100,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
   const [menu, setMenu] = useState<string | null>(null);
   const [minimapOpen, setMinimapOpen] = useState(false);
   const shownMinimap = usePresence(minimapOpen && !board.locked ? true : null);
-  const [hasUnreadGeneration, setHasUnreadGeneration] = useState(false);
+  const [unreadResults, setUnreadResults] = useState<string[]>([]);
   const [leftTab, setLeftTab] = useState<LeftPanelTab | null>(null);
   useLayoutEffect(() => {
     const bottom = bottomToolsRef.current;
@@ -125,8 +125,16 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     if (rightLimit < leftLimit) bottomToolsBottom = 80;
     else bottomToolsShift = centeredLeft - Math.max(leftLimit, Math.min(centeredLeft, rightLimit));
   }
-  const [generationRecords, setGenerationRecords] = useState<GenerationRecord[]>([]);
-  const openLeftPanel = (value: LeftPanelTab) => { setLeftTab(value); if (value === 'history') setHasUnreadGeneration(false); else if (value === 'assets' || board.selectedIds.length > 0) onNotify(demoNotice(locale)); };
+  const [generationRecords, setGenerationRecords] = useState<GenerationRecord[]>(initialDemoRecords);
+  // Removing a list entry does not erase the accepted task behind its canvas results.
+  const archivedRecords = useRef(new Map<string, GenerationRecord>());
+  const currentLeftTab = useRef(leftTab);
+  currentLeftTab.current = leftTab;
+  const hasUnreadGeneration = unreadResults.some(key => generationRecords.some(record => record.images.some(result => `${record.id}:${result.id}` === key && result.status === 'success')));
+  const markSuccess = (recordId: string, resultIds: string[]) => {
+    if (currentLeftTab.current !== 'history') setUnreadResults(previous => [...new Set([...previous, ...resultIds.map(id => `${recordId}:${id}`)])]);
+  };
+  const openLeftPanel = (value: LeftPanelTab) => { setLeftTab(value); if (value === 'history') setUnreadResults([]); else if (value === 'assets' || board.selectedIds.length > 0) onNotify(demoNotice(locale)); };
   // Demo submissions stand in for new generation records until generation is connected.
   const recordGenerationRequest = (request: string, title = "AI助手") => {
     setConversation(previous => [...previous, { role: 'user', text: request }, { role: 'assistant', text: '已记录设计需求。当前为交互 Demo，暂未接入 AI 生成。' }]);
@@ -134,7 +142,6 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     const now = new Date();
     const time = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     setGenerationRecords(previous => [{ id: crypto.randomUUID(), title, time, prompt: request, pending: true, tags: inputImage ? [{ label: '服装图', image: inputImage.url }] : [], images: [] }, ...previous]);
-    setHasUnreadGeneration(leftTab !== 'history');
   };
   const [printPlacement, setPrintPlacement] = useState<{ source: CanvasImage; draft: QuickEditDraft } | null>(null);
   const shownPrintPlacement = usePresence(printPlacement);
@@ -143,7 +150,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
   const [localEditDrafts, setLocalEditDrafts] = useState<Record<string, QuickEditDraft>>({});
   const closeLocalEdit = () => { setLocalEdit(null); board.setInteractionLocked(false); };
   const [quickEdit, setQuickEdit] = useState<string | null>(null);
-  const shownElementToolbar = usePresence(!localEdit && !quickEdit ? board.selected : null);
+  const shownElementToolbar = usePresence(!localEdit && !quickEdit && board.images.some(image => image.id === board.selected && !image.generating && !image.generationFailed) ? board.selected : null);
   useEffect(() => {
     const toolbar = toolbarRef.current;
     if (!toolbar) return;
@@ -163,7 +170,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
   // Keep each image's inputs for the canvas session, independently of menu visibility or submission.
   const [quickEditDrafts, setQuickEditDrafts] = useState<Record<string, QuickEditDraft>>({});
   const generationTimers = useRef(new Set<ReturnType<typeof setTimeout>>());
-  const retryCanvasActions = useRef(new Map<string, () => void>());
+  const retryingResults = useRef(new Set<string>());
   const generatingSources = useRef(new Set<string>());
   const generationMounted = useRef(true);
   useEffect(() => {
@@ -182,25 +189,33 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
       height: 92 * placeholders[index].height / placeholders[index].width,
       status: results.length === 4 && index === 2 ? 'failed' : 'success',
     }));
-    board.updateImages(placeholders.map(item => ({ id: item.id, taskResultId: `${recordId}:${item.id}` })));
     board.finishGeneration(placeholders.map(item => item.id), results.map((result, index) => images[index].status === 'failed' ? null : result), true);
-    setGenerationRecords(previous => previous.map(record => record.id === recordId ? { ...record, generating: false, images } : record));
+    setGenerationRecords(previous => previous.map(record => record.id === recordId ? { ...record, generating: false, images: images.filter(image => record.images.some(current => current.id === image.id)) } : record));
+    const archived = archivedRecords.current.get(recordId);
+    if (archived) archivedRecords.current.set(recordId, { ...archived, generating: false, images });
+    markSuccess(recordId, images.filter(image => image.status === 'success').map(image => image.id!));
+  };
+  const failDemoBatch = (id: string, placeholders: CanvasImage[]) => {
+    board.finishGeneration(placeholders.map(item => item.id), null, true);
+    const failed = (record: GenerationRecord): GenerationRecord => ({ ...record, generating: false, images: record.images.map(image => ({ ...image, status: 'failed' })) });
+    const archived = archivedRecords.current.get(id);
+    if (archived) archivedRecords.current.set(id, failed(archived));
+    setGenerationRecords(previous => previous.map(record => record.id === id ? failed(record) : record));
   };
   const generateQuickEdit = async (request: string, draft: QuickEditDraft, sourceId: string, independent = false) => {
     const source = board.images.find(item => item.id === sourceId);
     if (!source || generatingSources.current.has(sourceId)) return;
     const count = Math.min(4, Math.max(1, Number(draft.count) || 1));
-    const placeholders = board.beginGeneration(sourceId, count, draft.ratio);
+    const id = crypto.randomUUID();
+    const placeholders = board.beginGeneration(sourceId, count, draft.ratio, { taskRecordId: id });
     if (!placeholders.length) return;
     generatingSources.current.add(sourceId);
-    const id = crypto.randomUUID();
     const now = new Date();
     const time = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const isPrint = independent && localEditTool === '印花上身';
     const supportsPrompt = !isPrint;
-    setGenerationRecords(previous => [{ id, sourceId, title: independent ? `款式 - ${localEditTool}` : '快捷编辑', time, supportsPrompt, printMode: isPrint ? (draft.printMode ?? 'position') : undefined, prompt: supportsPrompt ? (draft.value.trim() || undefined) : undefined, generating: true, count, resultHeight: 92 * placeholders[0].height / placeholders[0].width, ratio: draft.ratio, resolution: draft.resolution, tags: [{ label: '服装图', image: source.url }, ...draft.references.map(ref => ({ label: independent && localEditTool === 'AI试衣' ? '模特图' : independent && localEditTool === '印花上身' ? '印花图' : '参考图', image: ref.url })), ...(isPrint ? [{ label: draft.printMode === 'repeat' ? '满印' : '指定位置' }] : [])], images: [] }, ...previous]);
+    setGenerationRecords(previous => [{ id, replayable: true, sourceId, title: independent ? `款式 - ${localEditTool}` : '快捷编辑', time, supportsPrompt, printMode: isPrint ? (draft.printMode ?? 'position') : undefined, prompt: supportsPrompt ? (draft.value.trim() || undefined) : undefined, generating: true, count, resultHeight: 92 * placeholders[0].height / placeholders[0].width, ratio: draft.ratio, resultRatio: `${placeholders[0].width}:${placeholders[0].height}`, resolution: draft.resolution, tags: [{ label: '服装图', image: source.url }, ...draft.references.map(ref => ({ label: independent && localEditTool === 'AI试衣' ? '模特图' : independent && localEditTool === '印花上身' ? '印花图' : '参考图', image: ref.url })), ...(isPrint ? [{ label: draft.printMode === 'repeat' ? '满印' : '指定位置' }] : [])], images: placeholders.map(item => ({ id: item.id, url: item.url, height: 92 * item.height / item.width, status: 'generating' })) }, ...previous]);
     if (!independent) setConversation(previous => [...previous, { role: 'user', text: request }, { role: 'assistant', text: '已记录设计需求。当前为交互 Demo，暂未接入 AI 生成。' }]);
-    setHasUnreadGeneration(leftTab !== 'history');
     setQuickEdit(null);
     // Find space for the whole batch to the source's right; keep existing content and viewport fixed.
     if (independent) closeLocalEdit();
@@ -216,23 +231,24 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
       finishDemoBatch(id, placeholders, results);
     } catch {
       if (!generationMounted.current) return;
-      board.finishGeneration(placeholders.map(item => item.id), null, true);
-      setGenerationRecords(previous => previous.map(record => record.id === id ? { ...record, generating: false, failed: true } : record));
+      failDemoBatch(id, placeholders);
       onNotify('图片加载失败，请重试', 'error');
     } finally {
       generatingSources.current.delete(sourceId);
     }
   };
-  const retryResult = async (record: GenerationRecord, index: number, retry: () => void) => {
+  const retryResult = async (record: GenerationRecord, index: number) => {
     const result = record.images[index];
-    if (!result?.id || board.locked) throw new Error('retry_unavailable');
-    const source = board.images.find(image => image.id === record.sourceId)
-      ?? board.images.find(image => image.url === record.tags.find(tag => tag.image)?.image);
+    if (!result?.id || result.status !== 'failed' || board.locked) throw new Error('retry_unavailable');
+    const source = board.images.find(image => image.id === record.sourceId);
     const key = `${record.id}:${result.id}`;
-    const placeholder = board.beginResultRetry(key, source?.id ?? record.sourceId, record.ratio ?? '1:1', record.title);
+    if (retryingResults.current.has(key)) throw new Error('retry_unavailable');
+    const placeholder = board.beginResultRetry(key, source?.id ?? record.sourceId, record.resultRatio ?? record.ratio ?? `92:${result.height}`, record.title);
     if (!placeholder) throw new Error('retry_unavailable');
-    retryCanvasActions.current.set(key, retry);
+    retryingResults.current.add(key);
     const updateStatus = (status: 'generating' | 'failed' | 'success') => {
+      const archived = archivedRecords.current.get(record.id);
+      if (archived) archivedRecords.current.set(record.id, { ...archived, images: archived.images.map(image => image.id === result.id ? { ...image, status } : image) });
       setGenerationRecords(previous => previous.map(item => item.id === record.id
         ? { ...item, images: item.images.map(image => image.id === result.id ? { ...image, status } : image) }
         : item));
@@ -249,6 +265,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
       if (generationMounted.current) {
         board.finishGeneration([placeholder.id], [loaded]);
         updateStatus('success');
+        markSuccess(record.id, [result.id]);
       }
       return loaded;
     } catch (error) {
@@ -257,26 +274,26 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
         updateStatus('failed');
       }
       throw error;
-    }
+    } finally { retryingResults.current.delete(key); }
   };
   const retryCanvasImage = (key: string) => {
-    const record = generationRecords.find(item => item.images.some(result => `${item.id}:${result.id}` === key));
-    if (!record) { retryCanvasActions.current.get(key)?.(); return; }
+    const record = [...generationRecords, ...archivedRecords.current.values()].find(item => item.images.some(result => `${item.id}:${result.id}` === key));
+    if (!record) { onNotify('生成失败，请重试', 'error'); return; }
     const index = record.images.findIndex(result => `${record.id}:${result.id}` === key);
     if (record.images[index]?.status !== 'failed') return;
-    void retryResult(record, index, () => retryCanvasImage(key)).catch(() => onNotify('生成失败，请重试', 'error'));
+    void retryResult(record, index).catch(() => onNotify('生成失败，请重试', 'error'));
   };
   const regenerateRecord = async (record: GenerationRecord) => {
-    const source = board.images.find(image => !image.generating && image.id === record.sourceId) ?? board.images.find(image => !image.generating && image.url === record.tags.find(tag => tag.image)?.image);
-    const count = record.count ?? Math.max(1, record.images.length);
-    const ratio = record.ratio && record.ratio !== 'auto' ? record.ratio : `92:${record.images[0]?.height ?? record.resultHeight ?? 92}`;
-    const placeholders = board.beginGeneration(source?.id ?? record.sourceId, count, ratio, { name: record.title });
-    if (!placeholders.length) return;
+    if (!record.replayable || record.generating || record.pending) return;
+    const source = board.images.find(image => image.id === record.sourceId);
     const id = crypto.randomUUID();
+    const count = record.count ?? Math.max(1, record.images.length);
+    const ratio = record.resultRatio ?? (record.ratio && record.ratio !== 'auto' ? record.ratio : `92:${record.images[0]?.height ?? record.resultHeight ?? 92}`);
+    const placeholders = board.beginGeneration(source?.id ?? record.sourceId, count, ratio, { name: record.title, taskRecordId: id });
+    if (!placeholders.length) return;
     const now = new Date();
     const time = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    setGenerationRecords(previous => [{ ...record, id, sourceId: source?.id ?? record.sourceId, time, generating: true, pending: false, failed: false, count, ratio, resultHeight: 92 * placeholders[0].height / placeholders[0].width, images: [], tags: record.tags.map(tag => ({ ...tag })) }, ...previous]);
-    setHasUnreadGeneration(leftTab !== 'history');
+    setGenerationRecords(previous => [{ ...record, id, sourceId: source?.id ?? record.sourceId, time, generating: true, pending: false, failed: false, count, resultRatio: ratio, resultHeight: 92 * placeholders[0].height / placeholders[0].width, images: placeholders.map(item => ({ id: item.id, url: item.url, height: 92 * item.height / item.width, status: 'generating' })), tags: record.tags.map(tag => ({ ...tag })) }, ...previous]);
     const delay = new Promise<void>(resolve => {
       const timer = setTimeout(() => { generationTimers.current.delete(timer); resolve(); }, 3000);
       generationTimers.current.add(timer);
@@ -288,8 +305,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
       finishDemoBatch(id, placeholders, results);
     } catch {
       if (!generationMounted.current) return;
-      board.finishGeneration(placeholders.map(item => item.id), null, true);
-      setGenerationRecords(previous => previous.map(item => item.id === id ? { ...item, generating: false, failed: true } : item));
+      failDemoBatch(id, placeholders);
       onNotify('图片加载失败，请重试', 'error');
     }
   };
@@ -388,8 +404,9 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
       <Tool icon="canvas-imgIconSystem6" label={t("资产")} size={24} onClick={() => openLeftPanel('assets')} />
       <Tool id="canvas-task-entry" icon="canvas-imgIcon2" label={t("任务")} size={24} unread={hasUnreadGeneration} onClick={() => openLeftPanel('history')} />
     </div>}
-    <CanvasLeftPanel layersDisabled={!!localEdit} tab={leftTab} hasSelectedElement={board.selectedIds.length > 0} onTabChange={openLeftPanel} onClose={() => setLeftTab(null)} records={generationRecords} unread={hasUnreadGeneration} uploads={uploads} onUpload={onRememberUpload} onNotify={onNotify} onRetryResult={retryResult} onRegenerate={record => void regenerateRecord(record)} onDeleteRecord={id => setGenerationRecords(previous => previous.filter(record => record.id !== id))} onDeleteResult={(id, index) => setGenerationRecords(previous => previous.flatMap(record => {
+    <CanvasLeftPanel layersDisabled={!!localEdit} tab={leftTab} hasSelectedElement={board.selectedIds.length > 0} onTabChange={openLeftPanel} onClose={() => setLeftTab(null)} records={generationRecords} unread={hasUnreadGeneration} uploads={uploads} onUpload={onRememberUpload} onNotify={onNotify} onRetryResult={retryResult} onRegenerate={record => void regenerateRecord(record)} onDeleteRecord={id => { const record = generationRecords.find(item => item.id === id); if (record && !archivedRecords.current.has(id)) archivedRecords.current.set(id, record); setGenerationRecords(previous => previous.filter(record => record.id !== id)); }} onDeleteResult={(id, index) => setGenerationRecords(previous => previous.flatMap(record => {
       if (record.id !== id) return [record];
+      if (!archivedRecords.current.has(id)) archivedRecords.current.set(id, record);
       const images = record.images.filter((_, imageIndex) => imageIndex !== index);
       return images.length ? [{ ...record, images }] : [];
     }))} />

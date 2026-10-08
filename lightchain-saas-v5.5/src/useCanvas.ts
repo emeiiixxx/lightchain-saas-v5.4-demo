@@ -309,15 +309,15 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
       : { x: 32, y: 32 };
     const clones = items.map(item => {
       if (item.groupId && !groups.has(item.groupId)) groups.set(item.groupId, { id: crypto.randomUUID(), time: nextCanvasTime() });
-      return { ...item, cover: false, origin: 'copy' as const, uploadedAt: undefined, id: crypto.randomUUID(), addedAt: nextCanvasTime(), generatedAt: undefined, generationParentId: undefined, generationRootId: undefined, generationRootAddedAt: undefined, generationBatchId: undefined, generationIndex: undefined, groupId: item.groupId ? groups.get(item.groupId)!.id : undefined, groupedAt: item.groupId ? groups.get(item.groupId)!.time : undefined, x: item.x + offset.x, y: item.y + offset.y };
+      return { ...item, cover: false, origin: 'copy' as const, taskResultId: undefined, uploadedAt: undefined, id: crypto.randomUUID(), addedAt: nextCanvasTime(), generatedAt: undefined, generationParentId: undefined, generationRootId: undefined, generationRootAddedAt: undefined, generationBatchId: undefined, generationIndex: undefined, groupId: item.groupId ? groups.get(item.groupId)!.id : undefined, groupedAt: item.groupId ? groups.get(item.groupId)!.time : undefined, x: item.x + offset.x, y: item.y + offset.y };
     });
     remember(state.images); const next = [...state.images, ...clones]; live.current.images = next; setImages(next);
     selectMany(clones.map(item => item.id)); return clones;
   }, [remember, selectMany, finishPlacement]);
-  const duplicate = useCallback(() => { finishPlacement(); insertCopies(live.current.images.filter(item => live.current.selectedIds.includes(item.id))); }, [insertCopies, finishPlacement]);
+  const duplicate = useCallback(() => { finishPlacement(); insertCopies(live.current.images.filter(item => live.current.selectedIds.includes(item.id) && !item.generating && !item.generationFailed)); }, [insertCopies, finishPlacement]);
   const copySelected = useCallback(() => {
     finishPlacement();
-    const items = live.current.images.filter(item => live.current.selectedIds.includes(item.id));
+    const items = live.current.images.filter(item => live.current.selectedIds.includes(item.id) && !item.generating && !item.generationFailed);
     if (items.length) { copied.current = items.map(item => ({ ...item })); notify('已复制，可在画布中粘贴', 'success'); }
   }, [notify, finishPlacement]);
   const paste = useCallback(() => {
@@ -371,7 +371,7 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     finishPlacement();
     const state = live.current;
     const target = state.images.find(item => item.id === imageId);
-    if (!target) return false;
+    if (!target || target.generating || target.generationFailed) return false;
     if (!target.cover) {
       remember(state.images);
       const next = state.images.map(item => ({ ...item, cover: item.id === imageId }));
@@ -392,7 +392,7 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
   }, [remember, notify, finishPlacement]);
   const downloadImage = useCallback(async (format: 'PNG' | 'JPG' | 'WebP' | 'AVIF') => {
     const state = live.current;
-    const items = state.images.filter(item => state.selectedIds.includes(item.id));
+    const items = state.images.filter(item => state.selectedIds.includes(item.id) && !item.generating && !item.generationFailed);
     if (!items.length) return;
     try {
       if (items.length > 1) await downloadSelection(items, format);
@@ -459,16 +459,17 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
   }, [fit, remember, worldPoint, finishPlacement]);
 
   // Start beside the source (or its whole group), then shift only the new batch right.
-  const beginGeneration = useCallback((sourceId: string | undefined, count: number, ratio: string, fallback?: { name: string }) => {
+  const beginGeneration = useCallback((sourceId: string | undefined, count: number, ratio: string, fallback?: { name?: string; taskRecordId?: string }) => {
     finishPlacement();
     const state = live.current, existingSource = state.images.find(item => item.id === sourceId);
-    if (existingSource?.generating || (!existingSource && !fallback)) return [];
+    if (existingSource?.generating || existingSource?.generationFailed || (!existingSource && !fallback)) return [];
     // Historical tasks can outlive their canvas input. Reserve a result batch
     // after existing content, or at the viewport center on an empty canvas.
     const content = state.images.length ? selectionBounds(state.images) : null;
-    const center = { x: (state.size.width / 2 - state.camera.x) / state.camera.zoom, y: (state.size.height / 2 - state.camera.y) / state.camera.zoom };
+    const viewport = editingViewport();
+    const center = { x: ((viewport.left + viewport.right) / 2 - state.camera.x) / state.camera.zoom, y: (state.size.height / 2 - state.camera.y) / state.camera.zoom };
     const source: CanvasImage = existingSource ?? {
-      id: sourceId ?? crypto.randomUUID(), name: fallback!.name, image: new Image(), url: '',
+      id: sourceId ?? crypto.randomUUID(), name: fallback?.name ?? '生成结果', image: new Image(), url: '',
       x: content ? content.x + content.width : center.x - 240,
       y: content?.y ?? center.y - 200, width: 0, height: 400, addedAt: nextCanvasTime(),
     };
@@ -476,7 +477,9 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     const height = source.height;
     const width = rw > 0 && rh > 0 ? height * rw / rh : source.width || 400;
     const anchor = selectionBounds(source.groupId ? state.images.filter(image => image.groupId === source.groupId) : [source]);
-    const gap = 40, x = anchor.x + anchor.width + gap, y = anchor.y;
+    const gap = 40;
+    const x = !existingSource && !content ? center.x - (count * width + (count - 1) * gap) / 2 : anchor.x + anchor.width + gap;
+    const y = !existingSource && !content ? center.y - height / 2 : anchor.y;
     const batchId = crypto.randomUUID();
     const additions = placeResultBatch(state.images, Array.from({ length: count }, (_, index): CanvasImage => ({
       id: crypto.randomUUID(), addedAt: nextCanvasTime(), name: `${source.name} · ${index + 1}`, image: source.image, url: source.url,
@@ -486,11 +489,12 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
       x: x + index * (width + gap), y,
       width, height, generating: true, fit: 'cover',
     })));
+    if (fallback?.taskRecordId) additions.forEach(item => { item.taskResultId = `${fallback.taskRecordId}:${item.id}`; });
     remember(state.images);
     const next = [...state.images, ...additions];
     animatePlacement(next);
     return additions;
-  }, [remember, finishPlacement, animatePlacement]);
+  }, [remember, finishPlacement, animatePlacement, editingViewport]);
 
   // A retry belongs to the same task result even when its canvas tile was deleted.
   const beginResultRetry = useCallback((resultId: string, sourceId: string | undefined, ratio: string, name: string) => {

@@ -12,8 +12,8 @@ function DeleteIcon() {
   </svg>;
 }
 
-export function TaskRecordMoreMenu({ detail = false, canDownload = false, canRegenerate = true, onDownload, onRegenerate, onDelete }: {
-  detail?: boolean; canDownload?: boolean; canRegenerate?: boolean;
+export function TaskRecordMoreMenu({ detail = false, canDownload = false, canRegenerate = true, showRegenerate = true, onDownload, onRegenerate, onDelete }: {
+  detail?: boolean; canDownload?: boolean; canRegenerate?: boolean; showRegenerate?: boolean;
   onDownload?: (format: DownloadFormat) => void; onRegenerate?: () => void; onDelete: () => void;
 }) {
   const { t } = useLocale();
@@ -101,7 +101,7 @@ export function TaskRecordMoreMenu({ detail = false, canDownload = false, canReg
     }}>
       {!detail && <>
         <Button role="menuitem" data-task-download disabled={!canDownload} aria-haspopup="menu" aria-expanded={open && downloadOpen} aria-controls={downloadId} onPointerEnter={() => openDownload()} onClick={() => openDownload(true)}><Icon name="task-record-download" size={20} /><span>{t('下载该组结果图')}</span><Icon name="menu-41-2700-imgStyleLinearNameChevronRight" size={16} /></Button>
-        <Button role="menuitem" disabled={!canRegenerate} onPointerEnter={() => setDownloadOpen(false)} onFocus={() => setDownloadOpen(false)} onClick={() => onRegenerate && choose(onRegenerate)}><Icon name="task-record-regenerate" size={20} /><span>{t('再次生成')}</span></Button>
+        {showRegenerate && <Button role="menuitem" disabled={!canRegenerate} onPointerEnter={() => setDownloadOpen(false)} onFocus={() => setDownloadOpen(false)} onClick={() => onRegenerate && choose(onRegenerate)}><Icon name="task-record-regenerate" size={20} /><span>{t('再次生成')}</span></Button>}
       </>}
       <Button role="menuitem" onPointerEnter={detail ? undefined : () => setDownloadOpen(false)} onFocus={detail ? undefined : () => setDownloadOpen(false)} onClick={() => choose(onDelete)}><DeleteIcon /><span>{t(detail ? '删除' : '删除此条记录')}</span></Button>
     </div>}

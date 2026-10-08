@@ -9,15 +9,17 @@ import type { PromptStoreResult } from '../prompt-storage';
 import type { LibraryImage } from '../asset-library';
 export type PromptEntry = { id: string; name: string; content: string; pinned?: boolean; coverUrl?: string };
 type Entry = PromptEntry;
-export function SavePrompt({anchor,phase,onClose,onSave}:{anchor:HTMLElement;phase:'enter'|'exit';onClose:()=>void;onSave:(name:string)=>void}){
+export function SavePrompt({anchor,phase,onClose,onSave}:{anchor:HTMLElement;phase:'enter'|'exit';onClose:()=>void;onSave:(name:string)=>void|Promise<void>}){
  const { t } = useLocale();
  const ref=useRef<HTMLDivElement>(null);const [name,setName]=useState('');
+ const saving=useRef(false);const [busy,setBusy]=useState(false);
+ const save=async()=>{if(saving.current||!name.trim())return;saving.current=true;setBusy(true);try{await onSave(name.trim());}finally{saving.current=false;setBusy(false);}};
  useLayoutEffect(()=>{const el=ref.current!;el.showPopover();let frame=0;const place=()=>{const r=anchor.getBoundingClientRect();el.style.left=`${Math.max(8,Math.min(r.left,innerWidth-el.offsetWidth-8))}px`;el.style.top=`${Math.max(8,r.top-el.offsetHeight-8>=8?r.top-el.offsetHeight-8:Math.min(r.bottom+8,innerHeight-el.offsetHeight-8))}px`;frame=requestAnimationFrame(place);};place();el.querySelector('input')?.focus({preventScroll:true});return()=>cancelAnimationFrame(frame);},[anchor]);
  useEffect(()=>{const outside=(e:PointerEvent)=>{if(e.target instanceof Node&&!ref.current?.contains(e.target)&&!anchor.contains(e.target))onClose();};document.addEventListener('pointerdown',outside,true);return()=>document.removeEventListener('pointerdown',outside,true);},[anchor,onClose]);
- return <div ref={ref} popover="manual" data-overlay data-select-popup role="dialog" aria-label={t('保存提示词')} className="prompt-save-popover" data-phase={phase} inert={phase==='exit'} onKeyDown={e=>{if(e.key==='Escape'){e.stopPropagation();onClose();anchor.focus({preventScroll:true});}if(e.key==='Enter'&&!e.nativeEvent.isComposing&&name.trim()){e.preventDefault();onSave(name.trim());}}}>
+ return <div ref={ref} popover="manual" data-overlay data-select-popup role="dialog" aria-label={t('保存提示词')} className="prompt-save-popover" data-phase={phase} inert={phase==='exit'} onKeyDown={e=>{if(e.key==='Escape'){e.stopPropagation();onClose();anchor.focus({preventScroll:true});}if(e.key==='Enter'&&!e.nativeEvent.isComposing&&name.trim()){e.preventDefault();void save();}}}>
  <header><h3>{t('保存提示词')}</h3><IconButton size="s" icon="close" aria-label={t('关闭')} onClick={onClose}/></header>
  <label className="prompt-name-input"><input aria-label={t('提示词名称')} placeholder={t('请输入名称')} value={name} maxLength={50} onChange={e=>setName(e.target.value)}/><span>{name.length}/50</span></label>
- <footer><Button variant="secondary" onClick={onClose}>{t('取消')}</Button><Button variant="primary" disabled={!name.trim()} onClick={()=>onSave(name.trim())}>{t('保存')}</Button></footer></div>;
+ <footer><Button variant="secondary" onClick={onClose}>{t('取消')}</Button><Button variant="primary" disabled={busy||!name.trim()} onClick={()=>void save()}>{t('保存')}</Button></footer></div>;
 }
 function useModal(ref:RefObject<HTMLDialogElement|null>){useEffect(()=>{const old=document.activeElement as HTMLElement|null;const el=ref.current!;el.showModal();return()=>{el.close();if(old?.isConnected)old.focus({preventScroll:true});};},[]);}
 export function PromptLibrary({phase,entries,uploads,onUpload,onStore,onNotify:notify,onClose,onApply}:{phase:'enter'|'exit';entries:Entry[];uploads:LibraryImage[];onUpload:(image:LibraryImage)=>void;onStore:(e:Entry[])=>Promise<PromptStoreResult>;onNotify:Notify;onClose:()=>void;onApply?:(content:string,mode:'replace'|'append')=>void}){
