@@ -3,8 +3,13 @@ import { createPortal } from 'react-dom';
 import { usePresence } from '../usePresence';
 
 type Target = { anchor: HTMLElement; label: string; container: HTMLElement };
-const shouldShowTooltip = (anchor: HTMLElement) => !anchor.hasAttribute('data-tooltip-truncated-only')
-  || anchor.scrollHeight > anchor.clientHeight + 1 || anchor.scrollWidth > anchor.clientWidth + 1;
+const shouldShowTooltip = (anchor: HTMLElement) => {
+  // innerText excludes labels hidden by responsive styles, keeping icon-only
+  // buttons discoverable while visible button labels do not repeat in tooltips.
+  if (anchor.matches('button') && anchor.innerText.trim()) return false;
+  return !anchor.hasAttribute('data-tooltip-truncated-only')
+    || anchor.scrollHeight > anchor.clientHeight + 1 || anchor.scrollWidth > anchor.clientWidth + 1;
+};
 // Delegated events cover native disabled buttons without adding layout wrappers.
 export function TooltipHost() {
   const id = useId();

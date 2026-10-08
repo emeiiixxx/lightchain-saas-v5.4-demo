@@ -163,7 +163,7 @@ export function CanvasLeftPanel({ tab, hasSelectedElement, onTabChange, onClose,
       <header className="left-panel-header">
         <div ref={switcher} className="right-panel-switcher left-panel-switcher" role="tablist" aria-label={t('画布功能栏')}>
           <span className="switcher-indicator" style={indicator} aria-hidden="true" />
-          {tabs.map(item => <button disabled={layersDisabled && item.value === 'layers'} key={item.value} id={`left-panel-tab-${item.value}`} type="button" role="tab" title={t(item.label)} aria-label={t(item.label)} aria-selected={shown.value === item.value} aria-controls="left-panel-content" tabIndex={shown.value === item.value ? 0 : -1} onClick={() => onTabChange(item.value)} onKeyDown={event => {
+          {tabs.map(item => <button disabled={layersDisabled && item.value === 'layers'} key={item.value} id={`left-panel-tab-${item.value}`} type="button" role="tab" data-tooltip={t(item.label)} aria-label={t(item.label)} aria-selected={shown.value === item.value} aria-controls="left-panel-content" tabIndex={shown.value === item.value ? 0 : -1} onClick={() => onTabChange(item.value)} onKeyDown={event => {
             if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
             event.preventDefault(); event.stopPropagation();
             const available = tabs.filter(tab => !layersDisabled || tab.value !== 'layers');
