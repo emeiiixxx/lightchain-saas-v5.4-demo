@@ -5,7 +5,7 @@ import { useLocale } from '../LocaleContext';
 import type { Notify } from '../notification';
 import { selectionBounds, type Alignment, type Bounds } from '../canvas-selection';
 import { downloadSelection } from '../download-selection';
-import { canvasLayouts } from '../canvas-arrangement';
+import { CanvasArrangeMenu } from './CanvasArrangeMenu';
 import { canvasToolbarPosition } from '../canvas-toolbar';
 import type { CanvasImage, useCanvas } from '../useCanvas';
 import { Button, Divider, Icon } from './ui';
@@ -105,16 +105,10 @@ export function MultiSelectionControls({ board, onNotify }: { board: Board; onNo
           setAlignOpen(false); setDownloadOpen(false); setArrangeOpen(true);
           requestAnimationFrame(() => { const buttons = toolbar.current?.querySelectorAll<HTMLButtonElement>('#multi-selection-arrange button'); buttons?.[last ? buttons.length - 1 : 0]?.focus(); });
         }}><Icon name="canvas-arrange" size={16} />{locale === 'en' ? 'Arrange' : locale === 'ja' ? '整列' : '整理'}</Button>
-        {arrangeOpen && <div id="multi-selection-arrange" className="element-design-menu multi-selection-arrange" role="menu" aria-label={locale === 'en' ? 'Arrange selection' : locale === 'ja' ? '選択範囲を整列' : '整理选中图片'} onKeyDown={event => {
-          if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
-          event.preventDefault(); event.stopPropagation();
-          const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button'));
-          const index = buttons.indexOf(event.target as HTMLButtonElement);
-          buttons[event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length]?.focus();
-        }}>{canvasLayouts.map(layout => <Button key={layout.value} role="menuitem" onClick={() => {
-          board.arrange(layout.value, 'selection'); setArrangeOpen(false);
+        {arrangeOpen && <CanvasArrangeMenu id="multi-selection-arrange" className="multi-selection-arrange" label={locale === 'en' ? 'Arrange selection' : locale === 'ja' ? '選択範囲を整列' : '整理选中图片'} onSelect={layout => {
+          board.arrange(layout, 'selection'); setArrangeOpen(false);
           board.canvasRef.current?.focus({ preventScroll: true });
-        }}>{locale === 'en' ? layout.en : locale === 'ja' ? layout.ja : layout.label}</Button>)}</div>}
+        }} />}
       </div><Divider vertical /></>}
       <Button onClick={() => { setAlignOpen(false); setArrangeOpen(false); setDownloadOpen(false); board.groupSelection(grouped); }}>{t(grouped ? '解散组' : '创建组')}</Button>
       {!grouped && <><div className="element-menu-anchor">

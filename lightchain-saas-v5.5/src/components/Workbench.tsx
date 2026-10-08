@@ -21,7 +21,7 @@ import { type CanvasImage, useCanvas } from '../useCanvas';
 import { GeneratingPlaceholder } from './GeneratingPlaceholder';
 import { prepareDemoResults } from '../demo-generation';
 import { MultiSelectionControls } from './MultiSelectionControls';
-import { canvasLayouts } from '../canvas-arrangement';
+import { CanvasArrangeMenu } from './CanvasArrangeMenu';
 import { imageBounds } from '../canvas-selection';
 import { canvasToolbarPosition, intersectsViewport, screenBounds } from '../canvas-toolbar';
 
@@ -348,13 +348,9 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
           if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
           event.preventDefault(); setMenu('arrange'); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('#canvas-arrange-menu button')?.focus());
         }}><Icon name="canvas-arrange" size={24} /></Button>
-        {shownMenu.value === 'arrange' && <div id="canvas-arrange-menu" className="element-design-menu canvas-arrange-menu" role="menu" aria-label={t('整理画布')} data-phase={shownMenu.phase} inert={shownMenu.phase === 'exit'} onKeyDown={event => {
-          if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setMenu(null); document.querySelector<HTMLButtonElement>('[aria-controls="canvas-arrange-menu"]')?.focus(); return; }
-          if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
-          event.preventDefault(); const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button'));
-          const index = buttons.indexOf(event.target as HTMLButtonElement);
-          buttons[event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length]?.focus();
-        }}>{canvasLayouts.map(layout => <Button key={layout.value} role="menuitem" onClick={() => { board.arrange(layout.value); setMenu(null); board.canvasRef.current?.focus({ preventScroll: true }); }}><Icon name={`canvas-arrange-${layout.value}`} size={20} /><span>{locale === 'en' ? layout.en : locale === 'ja' ? layout.ja : layout.label}</span></Button>)}</div>}
+        {shownMenu.value === 'arrange' && <CanvasArrangeMenu id="canvas-arrange-menu" className="canvas-arrange-menu" label={t('整理画布')} phase={shownMenu.phase} onEscape={() => {
+          setMenu(null); document.querySelector<HTMLButtonElement>('[aria-controls="canvas-arrange-menu"]')?.focus();
+        }} onSelect={layout => { board.arrange(layout); setMenu(null); board.canvasRef.current?.focus({ preventScroll: true }); }} />}
       </div>
       <div className="canvas-map-control">
         <div className="round-tool wb-surface"><Button className="workbench-tool" disabled={!!localEdit} aria-label={t('画布小地图')} aria-pressed={minimapOpen} aria-expanded={minimapOpen && !board.locked} aria-controls="canvas-minimap" onClick={() => setMinimapOpen(value => !value)}><Icon name="canvas-minimap" size={24} /></Button></div>
