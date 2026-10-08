@@ -54,7 +54,7 @@
 .prompt-edit-title > span {flex-shrink:0;}
 .prompt-edit-content > span {align-self:flex-end;}
 .prompt-edit-title:hover {background:var(--state-hover);}
-.prompt-edit-content textarea {color:var(--text-primary);}
+.prompt-edit-content textarea {border-radius:0;color:var(--text-primary);}
 .prompt-edit-title:focus-within,.prompt-edit-content:focus-within {background:var(--control-fill-focus);border-color:var(--brand-primary);}
 
 /* Figma 77:5993: title, optional original-ratio cover, then prompt content. */
