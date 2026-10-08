@@ -71,7 +71,7 @@ function paintPendingTile(ctx: CanvasRenderingContext2D, img: CanvasImage, palet
   ctx.beginPath(); ctx.rect(-img.width / 2, -img.height / 2, img.width, img.height); ctx.clip();
   ctx.fillStyle = palette.surface; ctx.fillRect(-img.width / 2, -img.height / 2, img.width, img.height);
   // Static indeterminate marker while isolated. The task itself continues normally.
-  const width = Math.min(img.width * .6, 160), height = 8;
+  const width = Math.min(img.width * .6, 240), height = 8;
   ctx.fillStyle = palette.track; ctx.beginPath(); ctx.roundRect(-width / 2, -16, width, height, height / 2); ctx.fill();
   ctx.fillStyle = palette.progress; ctx.beginPath(); ctx.roundRect(-width * .15, -16, width * .3, height, height / 2); ctx.fill();
   ctx.fillStyle = palette.text; ctx.font = `12px ${palette.fontFamily}`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
