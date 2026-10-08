@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { expandGroups, imageBounds, selectionBounds, type Alignment, type Bounds } from './canvas-selection';
 import { intersectsViewport, screenBounds } from './canvas-toolbar';
 
-export type CanvasImage = { id: string; name: string; image: HTMLImageElement; url: string; mimeType?: string; x: number; y: number; width: number; height: number; addedAt?: number; generatedAt?: number; uploadedAt?: number; origin?: 'upload' | 'generated' | 'copy'; generationParentId?: string; generationRootId?: string; generationRootAddedAt?: number; generationBatchId?: string; generationIndex?: number; groupId?: string; groupedAt?: number; generating?: boolean; fit?: 'cover'; rotation?: number; radius?: number; opacity?: number; flipX?: boolean; flipY?: boolean; stroke?: string; strokeWidth?: number; strokeOpacity?: number; strokeStyle?: 'solid' | 'dashed' | 'dotted'; strokeAlign?: 'inside' | 'center' | 'outside'; favorite?: boolean; cover?: boolean };
+export type CanvasImage = { id: string; name: string; image: HTMLImageElement; url: string; mimeType?: string; x: number; y: number; width: number; height: number; addedAt?: number; generatedAt?: number; uploadedAt?: number; origin?: 'upload' | 'generated' | 'copy'; generationParentId?: string; generationRootId?: string; generationRootAddedAt?: number; generationBatchId?: string; generationIndex?: number; groupId?: string; groupedAt?: number; generating?: boolean; generationFailed?: boolean; taskResultId?: string; fit?: 'cover'; rotation?: number; radius?: number; opacity?: number; flipX?: boolean; flipY?: boolean; stroke?: string; strokeWidth?: number; strokeOpacity?: number; strokeStyle?: 'solid' | 'dashed' | 'dotted'; strokeAlign?: 'inside' | 'center' | 'outside'; favorite?: boolean; cover?: boolean };
 type Camera = { x: number; y: number; zoom: number };
 type Point = { x: number; y: number };
 function movableImageAt(images: CanvasImage[], point: Point, camera: Camera) {
@@ -504,7 +504,26 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     return additions;
   }, [remember, finishPlacement, animatePlacement]);
 
-  const finishGeneration = useCallback((ids: string[], results: Omit<CanvasImage, 'x' | 'y'>[] | null) => {
+  // A retry belongs to the same task result even when its canvas tile was deleted.
+  const beginResultRetry = useCallback((resultId: string, sourceId: string | undefined, ratio: string, name: string) => {
+    finishPlacement();
+    const existing = live.current.images.find(item => item.taskResultId === resultId || item.id === resultId);
+    if (existing) {
+      if (existing.generating) return null;
+      const placeholder = { ...existing, generating: true, generationFailed: false, taskResultId: resultId };
+      const next = live.current.images.map(item => item.id === existing.id ? placeholder : item);
+      live.current.images = next; setImages(next);
+      return placeholder;
+    }
+    const placeholder = beginGeneration(sourceId, 1, ratio, { name })[0];
+    if (!placeholder) return null;
+    const linked = { ...placeholder, taskResultId: resultId };
+    const next = live.current.images.map(item => item.id === placeholder.id ? linked : item);
+    live.current.images = next; setImages(next);
+    return linked;
+  }, [finishPlacement, beginGeneration]);
+
+  const finishGeneration = useCallback((ids: string[], results: (Omit<CanvasImage, 'x' | 'y'> | null)[] | null, preserveFailure = false) => {
     finishPlacement();
     const resultById = new Map(ids.map((id, index) => {
       const result = results?.[index];
@@ -513,7 +532,7 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     const settle = (items: CanvasImage[]) => items.flatMap(item => {
       if (!resultById.has(item.id)) return [item];
       const result = resultById.get(item.id);
-      return result ? [{ ...item, name: result.name, url: result.url, image: result.image, mimeType: result.mimeType, generatedAt: result.generatedAt, generating: false }] : [];
+      return result ? [{ ...item, name: result.name, url: result.url, image: result.image, mimeType: result.mimeType, generatedAt: result.generatedAt, generating: false, generationFailed: false }] : preserveFailure ? [{ ...item, generating: false, generationFailed: true }] : [];
     });
     // Undo/redo must never bring back a placeholder whose task has already finished.
     history.current = history.current.map(settle); future.current = future.current.map(settle);
@@ -702,5 +721,5 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     return () => { canvas.removeEventListener('pointerenter', move); canvas.removeEventListener('pointerleave', leave); canvas.removeEventListener('contextmenu', context); stage.removeEventListener('wheel', wheel, true); canvas.removeEventListener('pointerdown', down); canvas.removeEventListener('pointermove', move); canvas.removeEventListener('pointerup', up); canvas.removeEventListener('pointercancel', up); window.removeEventListener('keydown', keydown); window.removeEventListener('keyup', keyup); window.removeEventListener('blur', blur); };
   }, [fit, remember, removeSelected, undo, redo, worldPoint, zoomAt, copySelected, duplicate, paste, selectMany, setSelected, groupSelection, updateMoveCursor, finishPlacement]);
   useEffect(() => () => { urls.current.forEach(url => URL.revokeObjectURL(url)); }, []);
-  return { projectCover, isolationActive: isolation.amount > 0 && images.some(image => image.id === isolation.id && !image.generating), locked, setInteractionLocked, setQuickEditing, blankClickVersion, setIsolatedImageId, editingViewport, focusImage, selectedIds, marquee, selectMany, updateImages, groupSelection, alignSelection, contextMenu, setContextMenu, copySelected, paste, reorder, setCover, resetCover, downloadImage, size, mode, effectiveMode, setMode, beginEdit, updateSelected, duplicate, arrange, redo, canUndo: history.current.length > 0, canRedo: future.current.length > 0, historyVersion, canvasRef, images, selected, setSelected, camera, panning, upload, addImages, beginGeneration, finishGeneration, zoomAt, navigateMinimap, fit, returnToContent, removeSelected, undo };
+  return { projectCover, isolationActive: isolation.amount > 0 && images.some(image => image.id === isolation.id && !image.generating), locked, setInteractionLocked, setQuickEditing, blankClickVersion, setIsolatedImageId, editingViewport, focusImage, selectedIds, marquee, selectMany, updateImages, groupSelection, alignSelection, contextMenu, setContextMenu, copySelected, paste, reorder, setCover, resetCover, downloadImage, size, mode, effectiveMode, setMode, beginEdit, updateSelected, duplicate, arrange, redo, canUndo: history.current.length > 0, canRedo: future.current.length > 0, historyVersion, canvasRef, images, selected, setSelected, camera, panning, upload, addImages, beginGeneration, beginResultRetry, finishGeneration, zoomAt, navigateMinimap, fit, returnToContent, removeSelected, undo };
 }

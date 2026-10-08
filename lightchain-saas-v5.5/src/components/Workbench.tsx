@@ -5,7 +5,7 @@ import { DownloadFormatMenu } from './DownloadFormatMenu';
 import { ElementSendMenu } from './ElementSendMenu';
 import { demoNotice } from '../demo-feedback';
 import type { Notify } from '../notification';
-import type { LibraryImage } from '../asset-library';
+import { prepareMainImage, type LibraryImage } from '../asset-library';
 import { useLocale } from '../LocaleContext';
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { Button, Divider, Icon } from './ui';
@@ -18,6 +18,7 @@ import { QuickEditComposer, createQuickEditDraft, type QuickEditDraft, type Canv
 import { StrokeColorPicker } from './StrokeColorPicker';
 import { CanvasLeftPanel, type LeftPanelTab, type GenerationRecord } from './CanvasLeftPanel';
 import { type CanvasImage, useCanvas } from '../useCanvas';
+import { TaskResultPlaceholder } from './TaskResultPlaceholder';
 import { GeneratingPlaceholder } from './GeneratingPlaceholder';
 import { prepareDemoResults } from '../demo-generation';
 import { MultiSelectionControls } from './MultiSelectionControls';
@@ -77,6 +78,9 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
   const { t, locale } = useLocale();
   const toolbarRef = useRef<HTMLDivElement>(null);
   const [toolbarSize, setToolbarSize] = useState({ width: 700, height: 42 });
+  const [hoveredToolbarAction, setHoveredToolbarAction] = useState<number | null>(null);
+  const lastHoveredToolbarAction = useRef(0);
+  const hoverToolbarAction = (index: number) => { lastHoveredToolbarAction.current = index; setHoveredToolbarAction(index); };
   const bottomToolsRef = useRef<HTMLDivElement>(null);
   const zoomToolsRef = useRef<HTMLDivElement>(null);
   const [bottomToolsSize, setBottomToolsSize] = useState({ bottom: 0, zoom: 0 });
@@ -159,6 +163,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
   // Keep each image's inputs for the canvas session, independently of menu visibility or submission.
   const [quickEditDrafts, setQuickEditDrafts] = useState<Record<string, QuickEditDraft>>({});
   const generationTimers = useRef(new Set<ReturnType<typeof setTimeout>>());
+  const retryCanvasActions = useRef(new Map<string, () => void>());
   const generatingSources = useRef(new Set<string>());
   const generationMounted = useRef(true);
   useEffect(() => {
@@ -170,6 +175,17 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
       generationTimers.current.clear();
     };
   }, []);
+  const finishDemoBatch = (recordId: string, placeholders: CanvasImage[], results: Omit<CanvasImage, 'x' | 'y'>[]) => {
+    // Demo only: batches of four always include one retryable failure.
+    const images: GenerationRecord['images'] = results.map((result, index) => ({
+      id: placeholders[index].id, url: result.url,
+      height: 92 * placeholders[index].height / placeholders[index].width,
+      status: results.length === 4 && index === 2 ? 'failed' : 'success',
+    }));
+    board.updateImages(placeholders.map(item => ({ id: item.id, taskResultId: `${recordId}:${item.id}` })));
+    board.finishGeneration(placeholders.map(item => item.id), results.map((result, index) => images[index].status === 'failed' ? null : result), true);
+    setGenerationRecords(previous => previous.map(record => record.id === recordId ? { ...record, generating: false, images } : record));
+  };
   const generateQuickEdit = async (request: string, draft: QuickEditDraft, sourceId: string, independent = false) => {
     const source = board.images.find(item => item.id === sourceId);
     if (!source || generatingSources.current.has(sourceId)) return;
@@ -197,8 +213,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
       const [assets] = await Promise.all([prepareDemoResults(), delay]);
       if (!generationMounted.current) return;
       const results = assets.slice(0, count);
-      board.finishGeneration(placeholders.map(item => item.id), results);
-      setGenerationRecords(previous => previous.map(record => record.id === id ? { ...record, generating: false, images: results.map((result, index) => ({ url: result.url, height: 92 * placeholders[index].height / placeholders[index].width })) } : record));
+      finishDemoBatch(id, placeholders, results);
     } catch {
       if (!generationMounted.current) return;
       board.finishGeneration(placeholders.map(item => item.id), null);
@@ -207,6 +222,49 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     } finally {
       generatingSources.current.delete(sourceId);
     }
+  };
+  const retryResult = async (record: GenerationRecord, index: number, retry: () => void) => {
+    const result = record.images[index];
+    if (!result?.id || board.locked) throw new Error('retry_unavailable');
+    const source = board.images.find(image => image.id === record.sourceId)
+      ?? board.images.find(image => image.url === record.tags.find(tag => tag.image)?.image);
+    const key = `${record.id}:${result.id}`;
+    const placeholder = board.beginResultRetry(key, source?.id ?? record.sourceId, record.ratio ?? '1:1', record.title);
+    if (!placeholder) throw new Error('retry_unavailable');
+    retryCanvasActions.current.set(key, retry);
+    const updateStatus = (status: 'generating' | 'failed' | 'success') => {
+      setGenerationRecords(previous => previous.map(item => item.id === record.id
+        ? { ...item, images: item.images.map(image => image.id === result.id ? { ...image, status } : image) }
+        : item));
+    };
+    updateStatus('generating');
+    board.setSelected(null);
+    board.focusImage(placeholder.id, 100, { animate: true, ignorePanels: false });
+    const delay = new Promise<void>(resolve => {
+      const timer = setTimeout(() => { generationTimers.current.delete(timer); resolve(); }, 2400);
+      generationTimers.current.add(timer);
+    });
+    try {
+      const [loaded] = await Promise.all([prepareMainImage({ id: result.id, url: result.url, name: `${t(record.title)} ${index + 1}` }), delay]);
+      if (generationMounted.current) {
+        board.finishGeneration([placeholder.id], [loaded]);
+        updateStatus('success');
+      }
+      return loaded;
+    } catch (error) {
+      if (generationMounted.current) {
+        board.finishGeneration([placeholder.id], null, true);
+        updateStatus('failed');
+      }
+      throw error;
+    }
+  };
+  const retryCanvasImage = (key: string) => {
+    const record = generationRecords.find(item => item.images.some(result => `${item.id}:${result.id}` === key));
+    if (!record) { retryCanvasActions.current.get(key)?.(); return; }
+    const index = record.images.findIndex(result => `${record.id}:${result.id}` === key);
+    if (record.images[index]?.status !== 'failed') return;
+    void retryResult(record, index, () => retryCanvasImage(key)).catch(() => onNotify('生成失败，请重试', 'error'));
   };
   const regenerateRecord = async (record: GenerationRecord) => {
     const source = board.images.find(image => !image.generating && image.id === record.sourceId) ?? board.images.find(image => !image.generating && image.url === record.tags.find(tag => tag.image)?.image);
@@ -227,8 +285,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
       const [assets] = await Promise.all([prepareDemoResults(), delay]);
       if (!generationMounted.current) return;
       const results = Array.from({ length: count }, (_, index) => assets[index % assets.length]);
-      board.finishGeneration(placeholders.map(item => item.id), results);
-      setGenerationRecords(previous => previous.map(item => item.id === id ? { ...item, generating: false, images: results.map((result, index) => ({ url: result.url, height: record.images[index]?.height ?? (placeholders[index] ? 92 * placeholders[index].height / placeholders[index].width : 92) })) } : item));
+      finishDemoBatch(id, placeholders, results);
     } catch {
       if (!generationMounted.current) return;
       board.finishGeneration(placeholders.map(item => item.id), null);
@@ -323,6 +380,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
       <Button variant="primary" size="s" onClick={board.returnToContent}>{t('回到内容')}</Button>
     </div>}
     {board.images.filter(item => item.generating !== undefined).map(item => <GeneratingPlaceholder key={item.id} active={!!item.generating} zoom={board.camera.zoom} suspended={board.isolationActive} style={{ left: item.x * board.camera.zoom + board.camera.x, top: item.y * board.camera.zoom + board.camera.y, width: item.width * board.camera.zoom, height: item.height * board.camera.zoom, visibility: board.isolationActive ? 'hidden' : 'visible' }} />)}
+    {board.images.filter(item => item.generationFailed).map(item => <div key={item.id} className="canvas-failed-result" style={{ position: 'absolute', pointerEvents: 'none', left: item.x * board.camera.zoom + board.camera.x, top: item.y * board.camera.zoom + board.camera.y, width: item.width * board.camera.zoom, height: item.height * board.camera.zoom, transform: `rotate(${item.rotation ?? 0}deg)`, visibility: board.isolationActive ? 'hidden' : 'visible' }}><div className="canvas-failed-result-content" style={{ width: item.width, height: item.height, transform: `scale(${board.camera.zoom})`, transformOrigin: 'top left' }}><TaskResultPlaceholder status="failed" size="large" onRetry={item.taskResultId ? () => retryCanvasImage(item.taskResultId!) : undefined} /></div></div>)}
     {board.marquee && <div className="canvas-marquee" aria-hidden="true" style={{ left: board.marquee.x * board.camera.zoom + board.camera.x, top: board.marquee.y * board.camera.zoom + board.camera.y, width: board.marquee.width * board.camera.zoom, height: board.marquee.height * board.camera.zoom }} />}
     {board.selectedIds.length > 1 && !board.marquee && <MultiSelectionControls key={board.selectedIds.join('|')} board={board} onNotify={onNotify} />}
     {!leftTab && <div className="left-tools wb-surface" data-canvas-ui data-phase="enter" role="toolbar" aria-label={t("画布功能栏")}>
@@ -330,7 +388,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
       <Tool icon="canvas-imgIconSystem6" label={t("资产")} size={24} onClick={() => openLeftPanel('assets')} />
       <Tool id="canvas-task-entry" icon="canvas-imgIcon2" label={t("任务")} size={24} unread={hasUnreadGeneration} onClick={() => openLeftPanel('history')} />
     </div>}
-    <CanvasLeftPanel layersDisabled={!!localEdit} tab={leftTab} hasSelectedElement={board.selectedIds.length > 0} onTabChange={openLeftPanel} onClose={() => setLeftTab(null)} records={generationRecords} unread={hasUnreadGeneration} uploads={uploads} onUpload={onRememberUpload} onNotify={onNotify} onRegenerate={record => void regenerateRecord(record)} onDeleteRecord={id => setGenerationRecords(previous => previous.filter(record => record.id !== id))} onDeleteResult={(id, index) => setGenerationRecords(previous => previous.flatMap(record => {
+    <CanvasLeftPanel layersDisabled={!!localEdit} tab={leftTab} hasSelectedElement={board.selectedIds.length > 0} onTabChange={openLeftPanel} onClose={() => setLeftTab(null)} records={generationRecords} unread={hasUnreadGeneration} uploads={uploads} onUpload={onRememberUpload} onNotify={onNotify} onRetryResult={retryResult} onRegenerate={record => void regenerateRecord(record)} onDeleteRecord={id => setGenerationRecords(previous => previous.filter(record => record.id !== id))} onDeleteResult={(id, index) => setGenerationRecords(previous => previous.flatMap(record => {
       if (record.id !== id) return [record];
       const images = record.images.filter((_, imageIndex) => imageIndex !== index);
       return images.length ? [{ ...record, images }] : [];
@@ -373,7 +431,14 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
             {[t("高清放大"), t("一键去底"), t("智能抠图"), t("智能裁图"), t("AI扩图"), t("AI消除")].map((label, index) => <Button role="menuitem" key={label} onClick={unavailable}><Icon name={`menu-41-3399-imgLeftIcon${index || ''}`} size={20} /><span>{label}</span></Button>)}
           </div>}
         </div>
-        <Divider vertical /><Button onClick={unavailable}><Icon name="element-tech" size={20} />{t("工艺单")}</Button><Divider vertical /><Tool icon="element-preview" label={t("查看大图")} onClick={() => setPreview(true)} /><Tool icon="asset-center" label={t("收藏到资源库")} onClick={unavailable} /><DownloadFormatMenu withLabel={false} open={menu === 'download'} onToggle={() => toggleMenu('download')} onClose={() => setMenu(null)} onSelect={format => void board.downloadImage(format)} /><ElementSendMenu open={menu === 'send'} onToggle={() => toggleMenu('send')} onClose={() => setMenu(null)} onSend={unavailable} />
+        <Divider vertical /><Button onClick={unavailable}><Icon name="element-tech" size={20} />{t("工艺单")}</Button><Divider vertical />
+        <div className="element-toolbar-actions" onPointerLeave={() => setHoveredToolbarAction(null)}>
+          <span className="element-toolbar-action-hover" aria-hidden="true" style={{ transform: `translateX(${(hoveredToolbarAction ?? lastHoveredToolbarAction.current) * 36}px)`, opacity: hoveredToolbarAction === null ? 0 : 1 }} />
+          <div className="element-toolbar-action" onPointerEnter={() => hoverToolbarAction(0)}><Tool icon="element-preview" label={t("查看大图")} onClick={() => setPreview(true)} /></div>
+          <div className="element-toolbar-action" onPointerEnter={() => hoverToolbarAction(1)}><Tool icon="asset-center" label={t("收藏到资源库")} onClick={unavailable} /></div>
+          <div className="element-toolbar-action" onPointerEnter={() => hoverToolbarAction(2)}><DownloadFormatMenu withLabel={false} open={menu === 'download'} onToggle={() => toggleMenu('download')} onClose={() => setMenu(null)} onSelect={format => void board.downloadImage(format)} /></div>
+          <div className="element-toolbar-action" onPointerEnter={() => hoverToolbarAction(3)}><ElementSendMenu open={menu === 'send'} onToggle={() => toggleMenu('send')} onClose={() => setMenu(null)} onSend={unavailable} /></div>
+        </div>
       </div>}
     </>}
     {shownPanel.value && <aside id="canvas-right-sidebar" className={`right-panel ${tab === 'properties' ? 'properties-panel' : ''}`} data-canvas-ui data-phase={shownPanel.phase} inert={shownPanel.phase === 'exit'}>

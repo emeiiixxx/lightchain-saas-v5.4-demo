@@ -53,6 +53,13 @@ body:has(.handle-rotate[data-rotating='true']), body:has(.handle-rotate[data-rot
 /* Buttons retain the shared 200ms foreground/background state transition. */
 .element-toolbar > .lc-button { padding: 0 8px; }
 .element-toolbar .divider { height: 32px; }
+.element-toolbar-actions { position: relative; display: flex; align-items: center; gap: 4px; flex: none; }
+.element-toolbar-action { position: relative; z-index: 1; width: 32px; height: 32px; }
+.element-toolbar-action-hover { position: absolute; top: 0; left: 0; width: 32px; height: 32px; border-radius: var(--radius-base); background: var(--state-hover); pointer-events: none; transition-property: transform, opacity; transition-duration: var(--motion-duration); transition-timing-function: var(--motion-easing); }
+.element-toolbar-action > .lc-button:not([aria-expanded='true']):hover,
+.element-toolbar-action > .element-menu-anchor > .lc-button:not([aria-expanded='true']):hover { background: transparent; }
+.element-toolbar-action > .lc-button:not(:disabled):is(:hover, :focus-visible),
+.element-toolbar-action > .element-menu-anchor > .lc-button:not(:disabled):is(:hover, :focus-visible, [aria-expanded='true']) { color: var(--text-brand); }
 .element-menu-anchor { position: relative; }
 .element-menu-anchor > .lc-button { padding: 0 8px; font-weight: 400; }
 .workbench-menu { position: absolute; z-index: 40; top: calc(100% + 8px); left: 0; min-width: 160px; background: var(--surface-secondary); border: 1px solid var(--border-weak); border-radius: var(--radius-l); padding: 4px; box-shadow: var(--shadow-l); font-size: 12px; }

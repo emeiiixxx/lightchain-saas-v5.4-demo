@@ -1,5 +1,9 @@
 // Workspace copy: Simplified Chinese key, English, Japanese.
 export const workspaceCopy: Record<string, readonly [string, string]> = {
+'生成失败': ['Generation failed', '生成に失敗しました'],
+'生成失败，请重试': ['Generation failed. Try again.', '生成に失敗しました。再試行してください。'],
+'重新生成': ['Regenerate', '再生成'],
+'保留连衣裙的版型，尝试不同的面料与颜色。': ['Keep the dress silhouette and try different fabrics and colors.', 'ワンピースのシルエットを保ちながら、異なる生地と色を試してください。'],
 '仅 Demo 演示，线上功能无需修改': ['Demo only; no changes to the live feature are needed.', 'デモ用です。公開中の機能は変更不要です。'],
 '功能无需修改，Demo 不作演示': ['This feature needs no changes and is not demonstrated in the demo.', 'この機能は変更不要のため、デモでは実演しません。'],
 '编辑蒙版': ["Edit mask", "マスクを編集"],

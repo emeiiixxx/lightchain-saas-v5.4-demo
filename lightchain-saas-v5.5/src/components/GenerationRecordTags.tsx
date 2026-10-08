@@ -3,11 +3,11 @@ import { useLocale } from '../LocaleContext';
 import { GenerationImageTag } from './GenerationImageTag';
 import { recordDisplayTags } from '../generation-record-display';
 
-export function GenerationRecordTags({ record, active = true }: { record: GenerationRecord; active?: boolean }) {
+export function GenerationRecordTags({ record, active = true, disabled = false }: { record: GenerationRecord; active?: boolean; disabled?: boolean }) {
   const { t, locale } = useLocale();
   return <div className="generation-record-tags">
     {recordDisplayTags(record).map((tag, index) => tag.image
-      ? <GenerationImageTag key={`${tag.label}-${index}`} src={tag.image} label={t(tag.label)} active={active} />
+      ? <GenerationImageTag key={`${tag.label}-${index}`} src={tag.image} label={t(tag.label)} active={active} disabled={disabled} />
       : <span className={`generation-record-tag${tag.color ? ' generation-record-tag--color' : ''}`} key={`${tag.label}-${index}`}>{tag.color && <span className="generation-record-color-swatch" style={{ backgroundColor: tag.color }} aria-hidden="true" />}{t(tag.label)}</span>)}
     {!!record.count && <span className="generation-record-tag">{record.title.includes('款式裂变')
       ? (locale === 'en' ? 'Variations: ' : locale === 'ja' ? 'バリエーション数：' : '裂变数量：')

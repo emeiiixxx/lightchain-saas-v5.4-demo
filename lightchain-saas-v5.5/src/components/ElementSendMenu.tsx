@@ -5,7 +5,7 @@ import { useHoverDismiss } from '../useHoverDismiss';
 import { modelDestinations, sendDestinations, type SendDestinationId } from '../send-destinations';
 import { Button, Icon } from './ui';
 
-export function ElementSendMenu({ open, onToggle, onClose, onSend, withLabel = false }: { withLabel?: boolean; open: boolean; onToggle: () => void; onClose: () => void; onSend: (destination: SendDestinationId) => void }) {
+export function ElementSendMenu({ open, onToggle, onClose, onSend, withLabel = false, disabled = false }: { disabled?: boolean; withLabel?: boolean; open: boolean; onToggle: () => void; onClose: () => void; onSend: (destination: SendDestinationId) => void }) {
   const { locale } = useLocale();
   const label = locale === 'en' ? 'Send to' : locale === 'ja' ? '送信先' : '发送至';
   const text = (item: { zh: string; en: string; ja: string }) => locale === 'en' ? item.en : locale === 'ja' ? item.ja : item.zh;
@@ -81,7 +81,7 @@ export function ElementSendMenu({ open, onToggle, onClose, onSend, withLabel = f
   return <div ref={trigger} className={`element-menu-anchor${withLabel ? ' element-send-with-label' : ''}`} data-workbench-menu onPointerEnter={cancelClose} onPointerLeave={event => {
     if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) modelHover.schedule();
   }}>
-    <Button className="workbench-tool element-menu-trigger" aria-label={label} title={withLabel ? undefined : label} aria-haspopup="menu" aria-expanded={open} aria-controls="element-send-menu" onClick={onToggle} onKeyDown={event => {
+    <Button disabled={disabled} className="workbench-tool element-menu-trigger" aria-label={label} title={withLabel ? undefined : label} aria-haspopup="menu" aria-expanded={open} aria-controls="element-send-menu" onClick={onToggle} onKeyDown={event => {
       if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return;
       event.preventDefault(); if (!open) onToggle();
       const last = event.key === 'ArrowUp';

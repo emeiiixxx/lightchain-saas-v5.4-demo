@@ -7,11 +7,11 @@ import { messages, type Locale } from '../i18n';
 import { useLocale } from '../LocaleContext';
 
 type Props = {
-  details?: ReactNode;
-  image: CanvasImage; locale: Locale; phase: 'enter' | 'exit'; onClose: () => void;
+  details?: ReactNode; content?: ReactNode;
+  image: Pick<CanvasImage, 'url' | 'name' | 'width' | 'height'>; locale: Locale; phase: 'enter' | 'exit'; onClose: () => void;
   images?: { url: string; name: string }[]; selectedIndex?: number; onSelect?: (index: number) => void;
 };
-export function FullImageViewer({ image, locale, phase, onClose, images = [], selectedIndex = 0, onSelect, details }: Props) {
+export function FullImageViewer({ image, locale, phase, onClose, images = [], selectedIndex = 0, onSelect, details, content }: Props) {
   const { t: translate } = useLocale();
   const hasGallery = images.length > 1 && !!onSelect;
   const thumbnails = useRef<HTMLElement>(null);
@@ -85,7 +85,7 @@ export function FullImageViewer({ image, locale, phase, onClose, images = [], se
     }}>
     <div ref={stage} className={`full-image-stage${dragging ? ' is-panning' : ''}`} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onLostPointerCapture={end}>
       <div className="full-image-center" style={{ width: image.width * fit, height: image.height * fit }}>
-        <ProgressiveImage className="full-image-content" src={image.url} alt={image.name} eager fit="contain" style={{ transform: `translate(${position.x}px, ${position.y}px) scale(${position.zoom})` }} />
+        {content ?? <ProgressiveImage className="full-image-content" src={image.url} alt={image.name} eager fit="contain" style={{ transform: `translate(${position.x}px, ${position.y}px) scale(${position.zoom})` }} />}
       </div>
     </div>
     {hasGallery && !details && <nav ref={thumbnails} className="full-image-thumbnails" aria-label={translate('图片缩略图')}>

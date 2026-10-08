@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { usePresence } from '../usePresence';
 
 // Same image bubble sizing and hover behavior as v5.3 AI try-on history.
-export function GenerationImageTag({ src, label, active }: { src: string; label: string; active: boolean }) {
+export function GenerationImageTag({ src, label, active, disabled = false }: { src: string; label: string; active: boolean; disabled?: boolean }) {
   const anchor = useRef<HTMLButtonElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ratio = useRef(1);
@@ -43,7 +43,7 @@ export function GenerationImageTag({ src, label, active }: { src: string; label:
   useEffect(() => { if (!active) { keepOpen(); setOpen(false); } }, [active]);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
   return <><span className="generation-record-tag generation-record-tag--image">
-    <button ref={anchor} type="button" className="generation-tag-thumb" aria-label={label} aria-describedby={open && active ? id : undefined} onMouseEnter={show} onMouseLeave={closeSoon} onFocus={show} onBlur={closeSoon} onClick={show}>
+    <button disabled={disabled} ref={anchor} type="button" className="generation-tag-thumb" aria-label={label} aria-describedby={open && active ? id : undefined} onMouseEnter={show} onMouseLeave={closeSoon} onFocus={show} onBlur={closeSoon} onClick={show}>
       <img src={src} width={20} height={20} alt="" onLoad={event => { ratio.current = event.currentTarget.naturalWidth / (event.currentTarget.naturalHeight || 1); }} />
     </button>{label}
   </span>{shown.value && createPortal(<div id={id} className="generation-tag-preview" data-phase={shown.phase} inert={shown.phase === 'exit'} role="region" aria-label={label} style={{ left: position.left, top: position.top }} onMouseEnter={keepOpen} onMouseLeave={closeSoon}>

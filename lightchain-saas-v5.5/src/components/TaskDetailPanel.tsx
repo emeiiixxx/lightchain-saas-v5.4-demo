@@ -7,6 +7,7 @@ import { useLocale } from '../LocaleContext';
 import type { Notify } from '../notification';
 import { demoNotice } from '../demo-feedback';
 import { Button, Divider, Icon } from './ui';
+import { TaskResultPlaceholder } from './TaskResultPlaceholder';
 import { ProgressiveImage } from './ProgressiveImage';
 import { GenerationRecordTags } from './GenerationRecordTags';
 import { recordHasPrompt } from '../generation-record-display';
@@ -35,10 +36,12 @@ export function TaskDetailPanel({ record, selectedIndex, active, onSelect, onLib
     return () => window.removeEventListener('pointerdown', outside);
   }, [sendOpen, downloadOpen]);
   useEffect(() => { setSendOpen(false); setDownloadOpen(false); }, [selectedIndex, active]);
+  const selected = record.images[selectedIndex];
+  const disabled = !selected || selected.status === 'failed' || selected.status === 'generating';
   const unavailable = () => onNotify(demoNotice(locale));
   const download = async (format: DownloadFormat) => {
     const image = record.images[selectedIndex];
-    if (!image || downloading) return;
+    if (!image || disabled || downloading) return;
     setDownloading(true);
     try {
       const name = `${t(record.title)}-${selectedIndex + 1}`;
@@ -49,7 +52,7 @@ export function TaskDetailPanel({ record, selectedIndex, active, onSelect, onLib
   };
   return <aside className="task-detail-panel" data-task-controls aria-label={locale === 'en' ? 'Task details' : locale === 'ja' ? 'タスク詳細' : '任务详情'}>
     <div className="task-detail-info">
-      <header><div className="task-detail-heading-text"><h2>{t(record.title)}</h2><time>{record.time}</time></div><Button className="task-detail-regenerate" variant="outline" size="s" disabled={record.generating || record.pending} onClick={onRegenerate}><Icon name="task-record-regenerate-small" size={16} />{t('再次生成')}</Button></header>
+      <header><div className="task-detail-heading-text"><h2>{t(record.title)}</h2><time>{record.time}</time></div><Button className="task-detail-regenerate" variant="outline" size="s" disabled={disabled || record.generating || record.pending} onClick={onRegenerate}><Icon name="task-record-regenerate-small" size={16} />{t('再次生成')}</Button></header>
       <nav className="task-detail-thumbnails" aria-label={t('图片缩略图')}>
         {record.images.map((image, index) => <button type="button" key={`${image.url}-${index}`} aria-label={`${t('查看大图')} · ${index + 1}`} aria-current={index === selectedIndex ? 'true' : undefined} onClick={() => onSelect(index)} onKeyDown={event => {
           if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
@@ -57,22 +60,22 @@ export function TaskDetailPanel({ record, selectedIndex, active, onSelect, onLib
           const step = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : event.key === 'ArrowUp' ? -4 : 4;
           const next = event.key === 'Home' ? 0 : event.key === 'End' ? record.images.length - 1 : Math.max(0, Math.min(record.images.length - 1, index + step));
           onSelect(next); event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('button')[next]?.focus();
-        }}><ProgressiveImage src={image.url} alt="" eager fit="cover" /></button>)}
+        }}>{image.status === 'failed' || image.status === 'generating' ? <TaskResultPlaceholder status={image.status} /> : <ProgressiveImage src={image.url} alt="" eager fit="cover" />}</button>)}
       </nav>
-      <GenerationRecordTags record={record} active={active} />
+      <GenerationRecordTags record={record} active={active && !disabled} disabled={disabled} />
       {recordHasPrompt(record) && <div className="generation-record-prompt task-detail-prompt">
         <p>{t(record.prompt!)}</p>
         <div className="generation-record-actions">
-          <Button onClick={onLibrary} aria-label={t('提示词库')} title={t('提示词库')}><Icon name="generation-record-imgLeftIcon" size={16} />{compactLibraryLabel}</Button><Divider vertical />
-          <Button onClick={event => onSave(event.currentTarget, t(record.prompt!))} aria-label={t('保存提示词')} title={t('保存提示词')}><Icon name="generation-record-imgLeftIcon1" size={16} />{compactSavePromptLabel}</Button><Divider vertical />
-          <Button onClick={() => onCopy(t(record.prompt!))}><Icon name="generation-record-imgLeftIcon2" size={16} />{t('复制')}</Button>
+          <Button disabled={disabled} onClick={onLibrary} aria-label={t('提示词库')} title={t('提示词库')}><Icon name="generation-record-imgLeftIcon" size={16} />{compactLibraryLabel}</Button><Divider vertical />
+          <Button disabled={disabled} onClick={event => onSave(event.currentTarget, t(record.prompt!))} aria-label={t('保存提示词')} title={t('保存提示词')}><Icon name="generation-record-imgLeftIcon1" size={16} />{compactSavePromptLabel}</Button><Divider vertical />
+          <Button disabled={disabled} onClick={() => onCopy(t(record.prompt!))}><Icon name="generation-record-imgLeftIcon2" size={16} />{t('复制')}</Button>
         </div>
       </div>}
     </div>
     <div className="task-detail-actions">
-      <ElementSendMenu withLabel open={sendOpen} onToggle={() => { setDownloadOpen(false); setSendOpen(value => !value); }} onClose={() => setSendOpen(false)} onSend={unavailable} /><Divider vertical />
-      <Button size="s" onClick={unavailable} aria-label={assetLabel}><Icon name="asset-center" size={16} />{assetLabel}</Button><Divider vertical />
-      <DownloadFormatMenu open={downloadOpen} disabled={downloading} onToggle={() => { setSendOpen(false); setDownloadOpen(value => !value); }} onClose={() => setDownloadOpen(false)} onSelect={format => void download(format)} /><Divider vertical />
+      <ElementSendMenu withLabel disabled={disabled} open={!disabled && sendOpen} onToggle={() => { setDownloadOpen(false); setSendOpen(value => !value); }} onClose={() => setSendOpen(false)} onSend={unavailable} /><Divider vertical />
+      <Button size="s" disabled={disabled} onClick={unavailable} aria-label={assetLabel}><Icon name="asset-center" size={16} />{assetLabel}</Button><Divider vertical />
+      <DownloadFormatMenu open={!disabled && downloadOpen} disabled={disabled || downloading} onToggle={() => { setSendOpen(false); setDownloadOpen(value => !value); }} onClose={() => setDownloadOpen(false)} onSelect={format => void download(format)} /><Divider vertical />
       <TaskRecordMoreMenu detail onDelete={onDeleteImage} />
     </div>
   </aside>;

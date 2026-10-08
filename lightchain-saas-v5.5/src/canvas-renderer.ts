@@ -37,7 +37,7 @@ function visible(image: CanvasImage, camera: Camera, viewport: Viewport) {
 
 // Shared native-size image painter; isolation never changes individual alpha values.
 export function paintCanvasImage(ctx: CanvasRenderingContext2D, img: CanvasImage, palette: CanvasPalette) {
-  if (img.generating || !img.image.complete || !img.image.naturalWidth) return;
+  if (img.generating || img.generationFailed || !img.image.complete || !img.image.naturalWidth) return;
   ctx.save();
   ctx.translate(img.x + img.width / 2, img.y + img.height / 2);
   ctx.rotate((img.rotation ?? 0) * Math.PI / 180);
