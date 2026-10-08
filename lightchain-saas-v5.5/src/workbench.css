@@ -425,10 +425,6 @@ html:not([lang='zh-CN']) .shortcuts-panel { width: 400px; }
 .local-edit-reference > .lc-icon-button > .icon { transform: scale(.75); }
 .local-edit-input .quick-edit-settings-trigger { width: 160px; flex: 0 0 160px; }
 .local-edit-input .quick-edit-settings-trigger > span:not(.icon) { flex: 1; text-align: left; }
-.local-edit-region { position: absolute; z-index: 4; border: 1px solid var(--border-brand); pointer-events: none; }
-.local-edit-region[data-drawing='true'] { pointer-events: auto; cursor: crosshair; touch-action: none; }
-.local-edit-region-mark { position: absolute; border: 1px dashed var(--border-brand); background: var(--alpha-brand-10); pointer-events: none; }
-.local-edit-region-mark > button { position: absolute; right: 0; top: 0; pointer-events: auto; background: var(--surface-floating); }
 .canvas-stage > canvas.is-locked { cursor: default; }
 .left-panel-switcher button:disabled { cursor: not-allowed; color: var(--text-disabled); opacity: 1; }
 

@@ -101,4 +101,3 @@ const ja: Messages = {
   ready: '素材をキャンバスに追加しました', back: 'プロジェクトに戻る', more: 'その他の機能', changeTool: '素材を追加',
 };
 export const messages = { 'zh-CN': zh, en, ja };
-export const locales: { value: Locale; label: string }[] = [{ value: 'zh-CN', label: '简体中文' }, { value: 'en', label: 'English' }, { value: 'ja', label: '日本語' }];

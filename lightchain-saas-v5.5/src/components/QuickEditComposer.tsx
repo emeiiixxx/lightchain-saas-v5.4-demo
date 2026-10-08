@@ -4,7 +4,6 @@ import type { Notify } from '../notification';
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type SetStateAction } from 'react';
 import { createPortal } from 'react-dom';
 import { AssetPicker } from './AssetPicker';
-import type { EditRegion } from './LocalEditRegion';
 import { GenerationSettings } from './GenerationSettings';
 import { readImage } from '../readImage';
 import type { LibraryImage } from '../asset-library';
@@ -17,7 +16,7 @@ import { useSavedPrompts } from '../useSavedPrompts';
 
 export type CanvasEditTool = '局部修改' | '印花上身' | 'AI试衣';
 type Reference = { id: string; name: string; url: string };
-export type QuickEditDraft = { value: string; references: Reference[]; ratio: string; resolution: string; count: string; region?: EditRegion; printMode?: 'position' | 'repeat' };
+export type QuickEditDraft = { value: string; references: Reference[]; ratio: string; resolution: string; count: string; printMode?: 'position' | 'repeat' };
 export const createQuickEditDraft = (): QuickEditDraft => ({ value: '', references: [], ratio: 'auto', resolution: '2K', count: '1' });
 export function QuickEditComposer({ board, image, phase, onClose, onSubmit, uploads, onUpload, draft, onDraftChange, generating = false, localEdit = false, tool = '局部修改', onAdjustPrint, onNotify }: {
   localEdit?: boolean; tool?: CanvasEditTool; onAdjustPrint?: (draft: QuickEditDraft) => void; onNotify: Notify;
@@ -27,7 +26,7 @@ export function QuickEditComposer({ board, image, phase, onClose, onSubmit, uplo
 }) {
   const { t, locale } = useLocale();
   const { value, references, ratio, resolution, count } = draft;
-  const copy = locale === 'en' ? { title: 'Local edit', hint: 'Tell me what to change, e.g. make the collar a V-neck', draw: 'Draw edit area', done: 'Finish drawing', clear: 'Clear area', reference: 'Reference', close: 'Close local edit', source: 'Source image', generate: 'Generate' } : locale === 'ja' ? { title: '部分編集', hint: '変更内容を入力してください（例：襟をVネックに）', draw: '編集範囲を描画', done: '描画を完了', clear: '範囲をクリア', reference: '参考画像', close: '部分編集を閉じる', source: '元画像', generate: '生成' } : { title: '局部修改', hint: '告诉我你想怎么改，如：把领子变V领', draw: '绘制修改区域', done: '完成绘制', clear: '清除区域', reference: '参考图', close: '关闭局部修改', source: '原图', generate: '生成' };
+  const copy = locale === 'en' ? { hint: 'Tell me what to change, e.g. make the collar a V-neck', draw: 'Draw edit area', reference: 'Reference', source: 'Source image', generate: 'Generate' } : locale === 'ja' ? { hint: '変更内容を入力してください（例：襟をVネックに）', draw: '編集範囲を描画', reference: '参考画像', source: '元画像', generate: '生成' } : { hint: '告诉我你想怎么改，如：把领子变V领', draw: '绘制修改区域', reference: '参考图', source: '原图', generate: '生成' };
   const printApply = localEdit && tool === '印花上身';
   const tryOn = localEdit && tool === 'AI试衣';
   const referenceLimit = printApply || tryOn ? 1 : 4;

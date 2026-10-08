@@ -1,6 +1,6 @@
 import { useLocale } from './LocaleContext';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Button, Dialog, Divider } from './components/ui';
+import { Button, Dialog } from './components/ui';
 import { useCanvas } from './useCanvas';
 import { TopBar } from './components/TopBar';
 import { DefaultPageUpload } from './components/DefaultPageUpload';
