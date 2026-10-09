@@ -1,6 +1,4 @@
 .task-result-placeholder { position: relative; display: flex; width: 100%; height: 100%; min-height: 0; align-items: center; justify-content: center; padding: 10px; overflow: hidden; background: var(--surface-secondary); color: var(--text-tertiary); }
-.task-result-placeholder-open { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; }
-.task-result-placeholder-open:focus-visible { outline-offset: -2px; }
 .task-result-state-message { position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--spacing-xs); pointer-events: none; }
 .task-result-state-content { display: flex; flex-direction: column; align-items: center; width: 56px; }
 .task-failure-artwork { position: relative; display: block; width: 56px; height: 56px; flex: none; }

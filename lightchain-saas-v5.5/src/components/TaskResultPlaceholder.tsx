@@ -6,7 +6,6 @@ import './task-result-placeholder.css';
 type Props = {
   status: 'failed' | 'generating';
   size?: 'thumbnail' | 'large';
-  onOpen?: () => void;
   onRetry?: () => void;
 };
 
@@ -19,10 +18,9 @@ function FailureArtwork() {
   </span>;
 }
 
-export function TaskResultPlaceholder({ status, size = 'thumbnail', onOpen, onRetry }: Props) {
+export function TaskResultPlaceholder({ status, size = 'thumbnail', onRetry }: Props) {
   const { t } = useLocale();
   return <span className={`task-result-placeholder task-result-placeholder--${size}`} data-node-id={size === 'large' ? '264:6593' : '264:6518'} aria-label={t(status === 'failed' ? '生成失败' : '生成中…')}>
-    {onOpen && <button type="button" className="task-result-placeholder-open" aria-label={t('查看大图')} onClick={onOpen} />}
     {status === 'generating' ? <GeneratingPlaceholder style={{ inset: 0 }} /> : <span className="task-result-state-message">
       <span className="task-result-state-content"><FailureArtwork />{size === 'large' && <span className="task-result-failure-title">{t('生成失败')}</span>}</span>
       {onRetry && <Button className="task-result-retry" size="s" variant="primary" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onRetry(); }}>{t('重新生成')}</Button>}

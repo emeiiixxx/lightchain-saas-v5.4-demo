@@ -3,14 +3,18 @@ import { useLocale } from '../LocaleContext';
 import { usePresence } from '../usePresence';
 import { IconButton } from './ui';
 import './task-feature-tip.css';
+import { readDemoState, writeDemoState } from '../demo-storage';
 
 export function TaskFeatureTip({ expanded, blankClickVersion }: { expanded: boolean; blankClickVersion: number }) {
   const { locale } = useLocale();
-  // Demo only: dismissal lasts until reload. Production persists this per user.
-  const [dismissed, setDismissed] = useState(false);
+  // Demo remembers dismissal in this browser; production scopes it to the account.
+  const [dismissed, setDismissed] = useState(() => readDemoState('task-tip-dismissed', false));
   const initialBlankClick = useRef(blankClickVersion);
   const shown = usePresence(dismissed || expanded || blankClickVersion !== initialBlankClick.current ? null : true);
-  useLayoutEffect(() => { if (expanded) setDismissed(true); }, [expanded]);
+  useLayoutEffect(() => {
+    if (expanded || blankClickVersion !== initialBlankClick.current) setDismissed(true);
+  }, [expanded, blankClickVersion]);
+  useLayoutEffect(() => { if (dismissed) writeDemoState('task-tip-dismissed', true); }, [dismissed]);
   const root = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
   useLayoutEffect(() => {

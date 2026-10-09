@@ -99,6 +99,9 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     textarea.current?.focus();
   };
   const [conversation, setConversation] = useState<AgentMessage[]>(() => [...demoConversation]);
+  const [agentScrolling, setAgentScrolling] = useState(false);
+  const agentScrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (agentScrollTimer.current) clearTimeout(agentScrollTimer.current); }, []);
   const [savedConversations, setSavedConversations] = useState<AgentMessage[][]>([]);
   const [menu, setMenu] = useState<string | null>(null);
   const [minimapOpen, setMinimapOpen] = useState(false);
@@ -182,7 +185,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     board.setIsolatedImageId(localEdit);
     return () => board.setIsolatedImageId(null);
   }, [localEdit, board.setIsolatedImageId]);
-  // Drafts stay in memory while typing; R02 exit and submit actions flush them silently.
+  // R02 persists changed inputs silently; exit and submit also retry any pending save.
   const inputMemory = useInputMemory(localEdit ? `${localEditTool}:${localEdit}` : quickEdit ? `quick:${quickEdit}` : null);
   const generationTimers = useRef(new Set<ReturnType<typeof setTimeout>>());
   const retryingResults = useRef(new Set<string>());
@@ -256,12 +259,11 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
   const retryResult = async (record: GenerationRecord, index: number) => {
     const result = record.images[index];
     if (!result?.id || result.status !== 'failed' || board.locked) throw new Error('retry_unavailable');
-    const source = board.images.find(image => image.id === record.sourceId);
     const key = `${record.id}:${result.id}`;
     if (retryingResults.current.has(key)) throw new Error('retry_unavailable');
     const target = retryRecordTarget(generationRecords, record, result, crypto.randomUUID(), new Date());
     const targetKey = `${target.record.id}:${result.id}`;
-    const placeholder = board.beginResultRetry(key, source?.id ?? record.sourceId, record.resultRatio ?? record.ratio ?? `92:${result.height}`, record.title, targetKey);
+    const placeholder = board.beginResultRetry(key, targetKey);
     if (!placeholder) throw new Error('retry_unavailable');
     retryingResults.current.add(key);
     retryingResults.current.add(targetKey);
@@ -447,7 +449,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
       <Tool icon="canvas-imgIconSystem6" label={t("资产")} size={24} onClick={() => openLeftPanel('assets')} />
       <Tool id="canvas-task-entry" icon="canvas-imgIcon2" label={t("任务")} size={24} unread={hasUnreadGeneration} onClick={() => openLeftPanel('history')} />
     </div>}
-    <CanvasLeftPanel layersDisabled={!!localEdit} tab={leftTab} hasSelectedElement={board.selectedIds.length > 0} onTabChange={openLeftPanel} onClose={() => setLeftTab(null)} records={generationRecords} unread={hasUnreadGeneration} uploads={uploads} onUpload={onRememberUpload} onNotify={onNotify} onRetryResult={retryResult} onRegenerate={record => void regenerateRecord(record)} onDeleteRecord={id => { const record = generationRecords.find(item => item.id === id); if (record && !archivedRecords.current.has(id)) archivedRecords.current.set(id, record); setGenerationRecords(previous => previous.filter(record => record.id !== id)); }} onDeleteResult={(id, index) => setGenerationRecords(previous => previous.flatMap(record => {
+    <CanvasLeftPanel layersDisabled={!!localEdit} tab={leftTab} hasSelectedElement={board.selectedIds.length > 0} onTabChange={openLeftPanel} onClose={() => setLeftTab(null)} records={generationRecords} unread={hasUnreadGeneration} uploads={uploads} onUpload={onRememberUpload} onNotify={onNotify} onRegenerate={record => void regenerateRecord(record)} onDeleteRecord={id => { const record = generationRecords.find(item => item.id === id); if (record && !archivedRecords.current.has(id)) archivedRecords.current.set(id, record); setGenerationRecords(previous => previous.filter(record => record.id !== id)); }} onDeleteResult={(id, index) => setGenerationRecords(previous => previous.flatMap(record => {
       if (record.id !== id) return [record];
       if (!archivedRecords.current.has(id)) archivedRecords.current.set(id, record);
       const images = record.images.filter((_, imageIndex) => imageIndex !== index);
@@ -525,7 +527,12 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
             </div>
             <Tool icon="canvas-imgIcon4" label={t("新建对话")} size={24} onClick={() => { setMenu(null); if (conversation.length) setSavedConversations(prev => [...prev, conversation]); setConversation([]); setPrompt(''); setAttachments([]); }} />
           </div>
-          <div className="agent-content">{conversation.length ? <div className="agent-thread">
+          <div className="agent-content" data-scrolling={agentScrolling} onScroll={event => {
+            const element = event.currentTarget;
+            setAgentScrolling(element.scrollHeight > element.clientHeight);
+            if (agentScrollTimer.current) clearTimeout(agentScrollTimer.current);
+            agentScrollTimer.current = setTimeout(() => setAgentScrolling(false), 600);
+          }}>{conversation.length ? <div className="agent-thread">
             {conversation[0].demo && <span className="agent-demo-caption">{t('演示对话')}</span>}
             {conversation.map((message, i) => <div className={`agent-turn agent-turn--${message.role}`} key={i}>
               <span className="agent-turn-label">{message.role === 'user' ? t('我') : t('AI助手')}</span>

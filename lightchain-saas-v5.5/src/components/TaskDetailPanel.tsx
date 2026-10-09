@@ -54,11 +54,15 @@ export function TaskDetailPanel({ record, selectedIndex, active, onSelect, onLib
     <div className="task-detail-info">
       <header><div className="task-detail-heading-text"><h2>{t(record.title)}</h2><time>{record.time}</time></div>{record.replayable && <Button className="task-detail-regenerate" variant="outline" size="s" disabled={disabled || record.generating || record.pending} onClick={onRegenerate}><Icon name="task-record-regenerate-small" size={16} />{t('再次生成')}</Button>}</header>
       <nav className="task-detail-thumbnails" aria-label={t('图片缩略图')}>
-        {record.images.map((image, index) => <button type="button" key={`${image.url}-${index}`} aria-label={`${t('查看大图')} · ${index + 1}`} aria-current={index === selectedIndex ? 'true' : undefined} onClick={() => onSelect(index)} onKeyDown={event => {
+        {record.images.map((image, index) => <button type="button" key={`${image.url}-${index}`} aria-label={`${t('查看大图')} · ${index + 1}`} disabled={image.status === 'failed' || image.status === 'generating'} aria-current={index === selectedIndex ? 'true' : undefined} onClick={() => onSelect(index)} onKeyDown={event => {
           if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
           event.preventDefault(); event.stopPropagation();
           const step = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : event.key === 'ArrowUp' ? -4 : 4;
-          const next = event.key === 'Home' ? 0 : event.key === 'End' ? record.images.length - 1 : Math.max(0, Math.min(record.images.length - 1, index + step));
+          const available = record.images.flatMap((item, i) => item.status === 'failed' || item.status === 'generating' ? [] : [i]);
+          const target = Math.max(0, Math.min(record.images.length - 1, index + step));
+          const next = event.key === 'Home' ? available[0] : event.key === 'End' ? available.at(-1)
+            : step > 0 ? available.find(i => i >= target) : [...available].reverse().find(i => i <= target);
+          if (next === undefined) return;
           onSelect(next); event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('button')[next]?.focus();
         }}>{image.status === 'failed' || image.status === 'generating' ? <TaskResultPlaceholder status={image.status} /> : <ProgressiveImage src={image.url} alt="" eager fit="cover" />}</button>)}
       </nav>

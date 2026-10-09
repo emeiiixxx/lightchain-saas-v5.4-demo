@@ -83,9 +83,11 @@ body:has(.handle-rotate[data-rotating='true']), body:has(.handle-rotate[data-rot
 .conversation-bar { height: 56px; flex: none; padding: 12px; display: flex; justify-content: space-between; align-items: center; position: relative; z-index: 1; }
 .conversation-bar > .lc-button, .conversation-trigger { font-size: 14px; font-weight: 400; height: 40px; padding: 0 12px; gap: 8px; }
 .conversation-bar > .workbench-tool { width: 40px; padding: 0; }
-.agent-content { flex: 1; min-height: 0; padding: 16px 24px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--border-medium) transparent; }
+.agent-content { flex: 1; min-height: 0; padding: 16px 24px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: transparent transparent; transition: scrollbar-color var(--motion-duration) var(--motion-easing); }
 .agent-content::-webkit-scrollbar { width: 8px; }
-.agent-content::-webkit-scrollbar-thumb { background: var(--border-medium); border-radius: 8px; }
+.agent-content::-webkit-scrollbar-thumb { background: transparent; border-radius: 8px; transition: background-color var(--motion-duration) var(--motion-easing); }
+.agent-content[data-scrolling='true'] { scrollbar-color: var(--border-medium) transparent; }
+.agent-content[data-scrolling='true']::-webkit-scrollbar-thumb { background: var(--border-medium); }
 .agent-content h2 { font-size: 24px; line-height: 32px; font-weight: 700; margin: 0 0 12px; }
 .agent-content > p { font-size: 14px; line-height: 20px; color: var(--text-tertiary); margin: 0 0 16px; }
 .agent-suggestions { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }

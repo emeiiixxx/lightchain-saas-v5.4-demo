@@ -514,24 +514,16 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     return additions;
   }, [remember, finishPlacement, animatePlacement, editingViewport]);
 
-  // A retry belongs to the same task result even when its canvas tile was deleted.
-  const beginResultRetry = useCallback((resultId: string, sourceId: string | undefined, ratio: string, name: string, targetResultId = resultId) => {
+  // Single-image retry is available only on an existing failed canvas tile.
+  const beginResultRetry = useCallback((resultId: string, targetResultId = resultId) => {
     finishPlacement();
     const existing = live.current.images.find(item => item.taskResultId === resultId || item.id === resultId);
-    if (existing) {
-      if (existing.generating) return null;
-      const placeholder = { ...existing, generating: true, generationFailed: false, taskResultId: targetResultId };
-      const next = live.current.images.map(item => item.id === existing.id ? placeholder : item);
-      live.current.images = next; setImages(next);
-      return placeholder;
-    }
-    const placeholder = beginGeneration(sourceId, 1, ratio, { name })[0];
-    if (!placeholder) return null;
-    const linked = { ...placeholder, taskResultId: targetResultId };
-    const next = live.current.images.map(item => item.id === placeholder.id ? linked : item);
+    if (!existing || existing.generating || !existing.generationFailed) return null;
+    const placeholder = { ...existing, generating: true, generationFailed: false, taskResultId: targetResultId };
+    const next = live.current.images.map(item => item.id === existing.id ? placeholder : item);
     live.current.images = next; setImages(next);
-    return linked;
-  }, [finishPlacement, beginGeneration]);
+    return placeholder;
+  }, [finishPlacement]);
 
   const finishGeneration = useCallback((ids: string[], results: (Omit<CanvasImage, 'x' | 'y'> | null)[] | null, preserveFailure = false) => {
     finishPlacement();

@@ -15,8 +15,8 @@ export function useInputMemory(activeKey: string | null) {
     let active = true;
     void restoreDemoUrls(readDemoState<Drafts>('input-memory', {})).then(saved => {
       if (!active) return;
-      current.current = { ...saved, ...current.current }; setDrafts(current.current); ready.current = true;
-    }).catch(() => { ready.current = true; });
+      current.current = { ...saved, ...current.current }; setDrafts(current.current); ready.current = true; flush();
+    }).catch(() => { if (active) { ready.current = true; flush(); } });
     const leave = () => flush();
     window.addEventListener('beforeunload', leave);
     window.addEventListener('pagehide', leave);
@@ -33,7 +33,7 @@ export function useInputMemory(activeKey: string | null) {
     const previous = current.current[key] ?? createQuickEditDraft();
     const next = typeof value === 'function' ? value(previous) : value;
     if (JSON.stringify(previous) === JSON.stringify(next)) return;
-    current.current = { ...current.current, [key]: next }; dirty.current = true; setDrafts(current.current);
-  }, []);
+    current.current = { ...current.current, [key]: next }; dirty.current = true; setDrafts(current.current); flush();
+  }, [flush]);
   return { drafts, update, flush };
 }
