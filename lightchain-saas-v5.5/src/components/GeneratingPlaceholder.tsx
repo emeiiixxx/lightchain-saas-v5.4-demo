@@ -4,7 +4,7 @@ import { usePresence } from '../usePresence';
 import './generating-placeholder.css';
 
 // Figma v5.3 103:4313 → Image/GeneratingPlaceholder 103:4264.
-// Original gradient exports; the cluster rotates once every three seconds.
+// Filter-free gradients match the original light clusters and rotate every three seconds.
 export function GeneratingPlaceholder({ style, active = true, suspended = false, zoom = 1 }: { style?: CSSProperties; active?: boolean; suspended?: boolean; zoom?: number }) {
   const { locale } = useLocale();
   const shown = usePresence(active ? true : null);
@@ -12,7 +12,7 @@ export function GeneratingPlaceholder({ style, active = true, suspended = false,
   const label = locale === 'en' ? 'Generating...' : '生成中...';
   return <div className="generating-placeholder" data-suspended={suspended} style={{ ...style, '--generation-zoom': zoom } as CSSProperties} data-phase={shown.phase} role="status" aria-label={active ? label : undefined} aria-busy={active} aria-hidden={!active}>
     <div className="generating-placeholder-motion" aria-hidden="true">
-      {['green', 'blue', 'purple'].map(color => <div key={color} className={`generating-placeholder-${color}`}><img src={`/assets/generation-loading/${color}.svg`} alt="" draggable={false} /></div>)}
+      {['green', 'blue', 'purple'].map(color => <div key={color} className={`generating-placeholder-${color}`} />)}
     </div>
     <div className="generating-placeholder-status">
       <div className="generating-placeholder-progress" role="progressbar" aria-label={label}>

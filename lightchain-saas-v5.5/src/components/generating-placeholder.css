@@ -3,14 +3,84 @@
 .generating-placeholder[data-phase='enter'] { animation: ui-enter var(--motion-duration) var(--motion-easing) backwards; }
 .generating-placeholder[data-phase='exit'] { animation: ui-exit var(--motion-duration) var(--motion-easing) both; }
 .generating-placeholder-motion { position: absolute; inset: -75.48% -62.5% -113.75% -100.96%; animation: generating-gradient-turn 3s linear infinite; transform-origin: center; }
+/* Radial alpha stops approximate the original SVG blur without SVG filters. */
 .generating-placeholder-motion > div { position: absolute; }
-.generating-placeholder-motion img { position: absolute; display: block; max-width: none; }
-.generating-placeholder-green { inset: 38.74% 3.8% -3.57% 25.04%; }
-.generating-placeholder-green img { inset: -38.46%; width: 176.92%; height: 176.92%; }
-.generating-placeholder-blue { inset: 6.32% 4.63% 34.25% 30.14%; }
-.generating-placeholder-blue img { inset: -41.96%; width: 183.92%; height: 183.92%; }
-.generating-placeholder-purple { inset: -.05% 43.06% 48.19% .01%; }
-.generating-placeholder-purple img { inset: -48.08%; width: 196.16%; height: 196.16%; }
+.generating-placeholder-motion > div::before { content: ""; position: absolute; inset: var(--glow-outset); background: radial-gradient(ellipse closest-side, var(--glow-stops)); }
+.generating-placeholder-green {
+  inset: 38.74% 3.8% -3.57% 25.04%;
+  --glow-outset: -76.9231%;
+  --glow-stops: rgba(93, 255, 228, 0.33808) 0%,
+    rgba(93, 255, 228, 0.33585) 5%,
+    rgba(93, 255, 228, 0.32869) 10%,
+    rgba(93, 255, 228, 0.31539) 15%,
+    rgba(93, 255, 228, 0.29456) 20%,
+    rgba(93, 255, 228, 0.26538) 25%,
+    rgba(93, 255, 228, 0.22845) 30%,
+    rgba(93, 255, 228, 0.18617) 35%,
+    rgba(93, 255, 228, 0.14238) 40%,
+    rgba(93, 255, 228, 0.10144) 45%,
+    rgba(93, 255, 228, 0.06689) 50%,
+    rgba(93, 255, 228, 0.04062) 55%,
+    rgba(93, 255, 228, 0.02261) 60%,
+    rgba(93, 255, 228, 0.01150) 65%,
+    rgba(93, 255, 228, 0.00533) 70%,
+    rgba(93, 255, 228, 0.00224) 75%,
+    rgba(93, 255, 228, 0.00086) 80%,
+    rgba(93, 255, 228, 0.00030) 85%,
+    rgba(93, 255, 228, 0.00009) 90%,
+    rgba(93, 255, 228, 0.00003) 95%,
+    rgba(93, 255, 228, 0.00000) 100%;
+}
+.generating-placeholder-blue {
+  inset: 6.32% 4.63% 34.25% 30.14%;
+  --glow-outset: -83.9161%;
+  --glow-stops: rgba(81, 168, 255, 0.32956) 0%,
+    rgba(81, 168, 255, 0.32657) 5%,
+    rgba(81, 168, 255, 0.31726) 10%,
+    rgba(81, 168, 255, 0.30082) 15%,
+    rgba(81, 168, 255, 0.27653) 20%,
+    rgba(81, 168, 255, 0.24449) 25%,
+    rgba(81, 168, 255, 0.20619) 30%,
+    rgba(81, 168, 255, 0.16455) 35%,
+    rgba(81, 168, 255, 0.12336) 40%,
+    rgba(81, 168, 255, 0.08633) 45%,
+    rgba(81, 168, 255, 0.05610) 50%,
+    rgba(81, 168, 255, 0.03370) 55%,
+    rgba(81, 168, 255, 0.01865) 60%,
+    rgba(81, 168, 255, 0.00948) 65%,
+    rgba(81, 168, 255, 0.00441) 70%,
+    rgba(81, 168, 255, 0.00188) 75%,
+    rgba(81, 168, 255, 0.00073) 80%,
+    rgba(81, 168, 255, 0.00026) 85%,
+    rgba(81, 168, 255, 0.00008) 90%,
+    rgba(81, 168, 255, 0.00002) 95%,
+    rgba(81, 168, 255, 0.00000) 100%;
+}
+.generating-placeholder-purple {
+  inset: -.05% 43.06% 48.19% .01%;
+  --glow-outset: -96.1539%;
+  --glow-stops: rgba(251, 201, 255, 0.30977) 0%,
+    rgba(251, 201, 255, 0.30574) 5%,
+    rgba(251, 201, 255, 0.29360) 10%,
+    rgba(251, 201, 255, 0.27333) 15%,
+    rgba(251, 201, 255, 0.24540) 20%,
+    rgba(251, 201, 255, 0.21118) 25%,
+    rgba(251, 201, 255, 0.17308) 30%,
+    rgba(251, 201, 255, 0.13426) 35%,
+    rgba(251, 201, 255, 0.09805) 40%,
+    rgba(251, 201, 255, 0.06707) 45%,
+    rgba(251, 201, 255, 0.04281) 50%,
+    rgba(251, 201, 255, 0.02540) 55%,
+    rgba(251, 201, 255, 0.01397) 60%,
+    rgba(251, 201, 255, 0.00711) 65%,
+    rgba(251, 201, 255, 0.00334) 70%,
+    rgba(251, 201, 255, 0.00145) 75%,
+    rgba(251, 201, 255, 0.00058) 80%,
+    rgba(251, 201, 255, 0.00021) 85%,
+    rgba(251, 201, 255, 0.00007) 90%,
+    rgba(251, 201, 255, 0.00002) 95%,
+    rgba(251, 201, 255, 0.00000) 100%;
+}
 .generating-placeholder-status { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--spacing-base) * var(--generation-zoom, 1)); color: var(--text-secondary); font-size: calc(12px * var(--generation-zoom, 1)); line-height: calc(16px * var(--generation-zoom, 1)); }
 .generating-placeholder-status > span { white-space: nowrap; }
 .generating-placeholder-progress { width: 60%; max-width: calc(240px * var(--generation-zoom, 1)); height: calc(8px * var(--generation-zoom, 1)); overflow: hidden; border-radius: var(--radius-max); background: var(--border-strong); }
