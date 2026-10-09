@@ -236,7 +236,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
       generationTimers.current.add(timer);
     });
     try {
-      const [assets] = await Promise.all([prepareDemoResults(), delay]);
+      const [assets] = await Promise.all([prepareDemoResults({ ratio: draft.ratio, resolution: draft.resolution, sourceSize: { width: source.image.naturalWidth, height: source.image.naturalHeight }, count }), delay]);
       if (!generationMounted.current) return;
       const results = assets.slice(0, count);
       finishDemoBatch(id, placeholders, results);
@@ -323,7 +323,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
       generationTimers.current.add(timer);
     });
     try {
-      const [assets] = await Promise.all([prepareDemoResults(), delay]);
+      const [assets] = await Promise.all([prepareDemoResults({ ratio: record.ratio, resolution: record.resolution, sourceSize: source ? { width: source.image.naturalWidth, height: source.image.naturalHeight } : sourceSize ?? placeholders[0], count }), delay]);
       if (!generationMounted.current) return;
       const results = Array.from({ length: count }, (_, index) => assets[index % assets.length]);
       finishDemoBatch(id, placeholders, results);
@@ -343,7 +343,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
         // Only recover placeholders loaded from storage, not currently running submissions.
         if (generationTimers.current.size || retryingResults.current.size || generatingSources.current.size) continue;
         resumedResults.current.add(key);
-        void prepareDemoResults().then(assets => {
+        void prepareDemoResults({ ratio: record.ratio, resolution: record.resolution, sourceSize: tile, count: 1 }).then(assets => {
           if (!generationMounted.current) return;
           const loaded = assets[0];
           board.finishGeneration([tile.id], [loaded], true);
