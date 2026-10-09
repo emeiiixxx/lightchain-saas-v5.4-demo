@@ -1,3 +1,4 @@
+import { readDemoState, writeDemoState, restoreDemoUrls, rememberDemoAsset } from './demo-storage';
 import { resolveProjectCover } from './project-cover';
 import type { Notify } from './notification';
 import { CanvasIsolationCache, paintCanvasImage, paintCanvasScene, type CanvasPalette } from './canvas-renderer';
@@ -78,6 +79,23 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
   const future = useRef<CanvasImage[][]>([]);
   const live = useRef({ images, selected, selectedIds, camera, size, mode });
   live.current = { images, selected, selectedIds, camera, size, mode };
+  const [restored, setRestored] = useState(false);
+  useEffect(() => {
+    let active = true;
+    const saved = readDemoState<{ images: Omit<CanvasImage, 'image'>[]; camera: Camera } | null>('canvas', null);
+    void (async () => {
+      try {
+        if (saved) {
+          const items = await restoreDemoUrls(saved.images);
+          const loaded = await Promise.all(items.map(async item => { const image = new Image(); image.src = item.url; await image.decode(); return { ...item, image }; }));
+          if (active && !live.current.images.length) { live.current.images = loaded; setImages(loaded); setCamera(saved.camera); }
+        }
+      } catch { /* Keep the current session usable if stored Demo data cannot load. */ }
+      if (active) setRestored(true);
+    })();
+    return () => { active = false; };
+  }, []);
+  useEffect(() => { if (restored) writeDemoState('canvas', { images, camera }); }, [restored, images, camera]);
   const placementAnimation = useRef<((finish: boolean) => void) | null>(null);
   const finishPlacement = useCallback(() => placementAnimation.current?.(true), []);
   useEffect(() => () => placementAnimation.current?.(false), []);
@@ -497,19 +515,19 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
   }, [remember, finishPlacement, animatePlacement, editingViewport]);
 
   // A retry belongs to the same task result even when its canvas tile was deleted.
-  const beginResultRetry = useCallback((resultId: string, sourceId: string | undefined, ratio: string, name: string) => {
+  const beginResultRetry = useCallback((resultId: string, sourceId: string | undefined, ratio: string, name: string, targetResultId = resultId) => {
     finishPlacement();
     const existing = live.current.images.find(item => item.taskResultId === resultId || item.id === resultId);
     if (existing) {
       if (existing.generating) return null;
-      const placeholder = { ...existing, generating: true, generationFailed: false, taskResultId: resultId };
+      const placeholder = { ...existing, generating: true, generationFailed: false, taskResultId: targetResultId };
       const next = live.current.images.map(item => item.id === existing.id ? placeholder : item);
       live.current.images = next; setImages(next);
       return placeholder;
     }
     const placeholder = beginGeneration(sourceId, 1, ratio, { name })[0];
     if (!placeholder) return null;
-    const linked = { ...placeholder, taskResultId: resultId };
+    const linked = { ...placeholder, taskResultId: targetResultId };
     const next = live.current.images.map(item => item.id === placeholder.id ? linked : item);
     live.current.images = next; setImages(next);
     return linked;
@@ -540,7 +558,7 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     if (!accepted.length) return;
     const results = await Promise.allSettled(accepted.map(file => new Promise<Omit<CanvasImage, 'x' | 'y'>>((resolve, reject) => {
       const url = URL.createObjectURL(file), image = new Image(); urls.current.push(url);
-      image.onload = () => { const ratio = Math.min(1, 400 / Math.max(image.naturalWidth, image.naturalHeight)); resolve({ id: crypto.randomUUID(), name: file.name, mimeType: file.type, origin: 'upload', uploadedAt: nextCanvasTime(), image, url, width: image.naturalWidth * ratio, height: image.naturalHeight * ratio }); };
+      image.onload = async () => { try { await rememberDemoAsset(url, file); } catch (error) { reject(error); return; } const ratio = Math.min(1, 400 / Math.max(image.naturalWidth, image.naturalHeight)); resolve({ id: crypto.randomUUID(), name: file.name, mimeType: file.type, origin: 'upload', uploadedAt: nextCanvasTime(), image, url, width: image.naturalWidth * ratio, height: image.naturalHeight * ratio }); };
       image.onerror = reject; image.src = url;
     })));
     const loaded = results.flatMap(r => r.status === 'fulfilled' ? [r.value] : []);
@@ -713,5 +731,5 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     return () => { canvas.removeEventListener('pointerenter', move); canvas.removeEventListener('pointerleave', leave); canvas.removeEventListener('contextmenu', context); stage.removeEventListener('wheel', wheel, true); canvas.removeEventListener('pointerdown', down); canvas.removeEventListener('pointermove', move); canvas.removeEventListener('pointerup', up); canvas.removeEventListener('pointercancel', up); window.removeEventListener('keydown', keydown); window.removeEventListener('keyup', keyup); window.removeEventListener('blur', blur); };
   }, [fit, remember, removeSelected, undo, redo, worldPoint, zoomAt, copySelected, duplicate, paste, selectMany, setSelected, groupSelection, updateMoveCursor, finishPlacement]);
   useEffect(() => () => { urls.current.forEach(url => URL.revokeObjectURL(url)); }, []);
-  return { projectCover, isolationActive: isolation.amount > 0 && images.some(image => image.id === isolation.id && !image.generating), locked, setInteractionLocked, setQuickEditing, blankClickVersion, setIsolatedImageId, editingViewport, focusImage, selectedIds, marquee, selectMany, updateImages, groupSelection, alignSelection, contextMenu, setContextMenu, copySelected, paste, reorder, setCover, resetCover, downloadImage, size, mode, effectiveMode, setMode, beginEdit, updateSelected, duplicate, arrange, redo, canUndo: !images.some(image => image.generating) && history.current.length > 0, canRedo: !images.some(image => image.generating) && future.current.length > 0, historyVersion, canvasRef, images, selected, setSelected, camera, panning, upload, addImages, beginGeneration, beginResultRetry, finishGeneration, zoomAt, navigateMinimap, fit, returnToContent, removeSelected, undo };
+  return { restored, projectCover, isolationActive: isolation.amount > 0 && images.some(image => image.id === isolation.id && !image.generating), locked, setInteractionLocked, setQuickEditing, blankClickVersion, setIsolatedImageId, editingViewport, focusImage, selectedIds, marquee, selectMany, updateImages, groupSelection, alignSelection, contextMenu, setContextMenu, copySelected, paste, reorder, setCover, resetCover, downloadImage, size, mode, effectiveMode, setMode, beginEdit, updateSelected, duplicate, arrange, redo, canUndo: !images.some(image => image.generating) && history.current.length > 0, canRedo: !images.some(image => image.generating) && future.current.length > 0, historyVersion, canvasRef, images, selected, setSelected, camera, panning, upload, addImages, beginGeneration, beginResultRetry, finishGeneration, zoomAt, navigateMinimap, fit, returnToContent, removeSelected, undo };
 }

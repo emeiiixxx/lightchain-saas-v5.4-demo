@@ -1,3 +1,4 @@
+import { readDemoState, writeDemoState } from './demo-storage';
 import { useLocale } from './LocaleContext';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Button, Dialog } from './components/ui';
@@ -17,7 +18,7 @@ import type { Notify } from './notification';
 
 export default function App() {
   const { t, locale } = useLocale();
-  const [title, setTitle] = useState('Untitle');
+  const [title, setTitle] = useState(() => readDemoState('project-title', 'Untitle'));
   const [panel, setPanel] = useState(false);
   const [modal, setModal] = useState<'help' | 'support' | 'points' | 'project' | 'upload' | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => { try { return localStorage.getItem('lightchain-theme') === 'light' ? 'light' : 'dark'; } catch { return 'dark'; } });
@@ -34,7 +35,7 @@ export default function App() {
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
   const board = useCanvas(notify, theme, locale);
   const [projectUpdatedAt, setProjectUpdatedAt] = useState(Date.now);
-  useEffect(() => { setProjectUpdatedAt(Date.now()); }, [board.images, title]);
+  useEffect(() => { setProjectUpdatedAt(Date.now()); writeDemoState('project-title', title); }, [board.images, title]);
   const replaceTarget = useRef<string | null>(null);
   const shownModal = usePresence(modal);
   const shownToast = usePresence(toast);
@@ -53,7 +54,7 @@ export default function App() {
     <TopBar theme={theme} onThemeChange={setTheme} onModal={setModal} />
     <main className={`canvas-stage ${dragging ? 'is-dragging' : ''}`} aria-label={t("设计生产工作台")} onDragEnter={e => { if (!board.locked && e.dataTransfer.types.includes('Files')) { e.preventDefault(); dragCount.current++; setDragging(true); } }} onDragOver={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = board.locked ? 'none' : 'copy'; } }} onDragLeave={e => { if (e.dataTransfer.types.includes('Files')) { dragCount.current--; if (dragCount.current <= 0) setDragging(false); } }} onDrop={e => { e.preventDefault(); dragCount.current = 0; setDragging(false); if (board.locked) return; const r = e.currentTarget.getBoundingClientRect(); void board.upload(e.dataTransfer.files, board.images.length ? { x: e.clientX - r.left, y: e.clientY - r.top } : undefined); }}>
       <canvas ref={board.canvasRef} className={board.locked ? 'is-locked' : board.panning ? 'is-panning' : board.effectiveMode === 'hand' ? 'is-hand' : ''} tabIndex={0} aria-label={t("无限画布。拖动空白处框选，Shift 点选多张；空格拖动平移；按住 Control、Command 或 Option / Alt 滚轮缩放。")} />
-      <ProjectPanel name={title} onNameChange={setTitle} onBack={() => setModal('project')} />
+      <ProjectPanel name={title} onNameChange={setTitle} onBack={() => { window.dispatchEvent(new Event('lightchain:leave-project')); setModal('project'); }} />
       {!panel && <Button className="sidebar-toggle" icon="sidebar" aria-label={panel ? t("收起右侧栏") : t("展开右侧栏")} title={panel ? t("收起右侧栏") : t("展开右侧栏")} aria-expanded={panel} aria-controls="canvas-right-sidebar" data-canvas-ui onClick={() => setPanel(true)} />}
       {shownWelcome.value && <section data-phase={shownWelcome.phase} inert={shownWelcome.phase === 'exit'} className="welcome" aria-label={t("开始设计")}>
         <h1>{t("Hello✨ 设计从这里开始")}</h1>
@@ -65,6 +66,6 @@ export default function App() {
     </main>
     {shownToast.value && <Toast notice={shownToast.value} phase={shownToast.phase} />}
     {shownModal.value === 'upload' && <AssetPicker locale={locale} phase={shownModal.phase} uploads={uploads} onUpload={rememberUpload} onClose={() => setModal(null)} onConfirm={image => confirmImages([image])} onConfirmBatch={replaceTarget.current ? undefined : confirmImages} />}
-    {shownModal.value && shownModal.value !== 'upload' && <Dialog phase={shownModal.phase} title={shownModal.value === 'project' ? t("项目概览") : shownModal.value === 'help' ? t("画布操作指南") : shownModal.value === 'support' ? t("联系客服") : t("积分账户")} onClose={() => setModal(null)}>{shownModal.value === 'project' ? <><div className="project-card-preview-area"><ProjectCard name={title} coverUrl={board.projectCover?.url} updatedAt={projectUpdatedAt} onNameChange={setTitle} onOpen={() => setModal(null)} onMoreAction={() => notify(demoNotice(locale))} /></div><p className="text-xs leading-5 text-muted">{t("当前项目仅保留在本次打开的页面中。")}</p><div className="flex justify-end mt-6"><Button variant="outline" onClick={() => setModal(null)}>{t("返回画布")}</Button></div></> : shownModal.value === 'help' ? <div className="help-content"><p>{t("点击素材卡，或者将图片拖入画布，开始设计。")}</p><dl><dt>{t("平移画布")}</dt><dd>{t("空格 + 拖动 / 手形工具 / 中键拖动 / 滚轮")}</dd><dt>{t("缩放画布")}</dt><dd>{t("⌘ / Ctrl / Option / Alt + 滚轮，或触控板捏合")}</dd><dt>{t("移动图片")}</dt><dd>{t("按住图片拖动")}</dd><dt>{t("恢复 100% / 适应画布")}</dt><dd>1 / 2</dd><dt>{t("删除选中图片")}</dt><dd>Delete / Backspace</dd><dt>{t("撤销上传、移动、删除")}</dt><dd>⌘ / Ctrl + Z</dd></dl><p className="muted">{t("当前 Demo 的图片仅保留在本次打开的页面中。")}</p></div> : shownModal.value === 'support' ? <p className="muted">{t("当前为设计生产工作台 Demo，暂未接入在线客服。")}</p> : <div><p className="muted">{t("演示账户可用积分")}</p><p className="text-3xl font-medium my-4">99,999</p><p className="muted">{t("当前 Demo 暂未接入积分购买。")}</p></div>}</Dialog>}
+    {shownModal.value && shownModal.value !== 'upload' && <Dialog phase={shownModal.phase} title={shownModal.value === 'project' ? t("项目概览") : shownModal.value === 'help' ? t("画布操作指南") : shownModal.value === 'support' ? t("联系客服") : t("积分账户")} onClose={() => setModal(null)}>{shownModal.value === 'project' ? <><div className="project-card-preview-area"><ProjectCard name={title} coverUrl={board.projectCover?.url} updatedAt={projectUpdatedAt} onNameChange={setTitle} onOpen={() => setModal(null)} onMoreAction={() => notify(demoNotice(locale))} /></div><p className="text-xs leading-5 text-muted">{t("当前 Demo 项目保存在此浏览器中，暂不支持跨浏览器同步。")}</p><div className="flex justify-end mt-6"><Button variant="outline" onClick={() => setModal(null)}>{t("返回画布")}</Button></div></> : shownModal.value === 'help' ? <div className="help-content"><p>{t("点击素材卡，或者将图片拖入画布，开始设计。")}</p><dl><dt>{t("平移画布")}</dt><dd>{t("空格 + 拖动 / 手形工具 / 中键拖动 / 滚轮")}</dd><dt>{t("缩放画布")}</dt><dd>{t("⌘ / Ctrl / Option / Alt + 滚轮，或触控板捏合")}</dd><dt>{t("移动图片")}</dt><dd>{t("按住图片拖动")}</dd><dt>{t("恢复 100% / 适应画布")}</dt><dd>1 / 2</dd><dt>{t("删除选中图片")}</dt><dd>Delete / Backspace</dd><dt>{t("撤销上传、移动、删除")}</dt><dd>⌘ / Ctrl + Z</dd></dl><p className="muted">{t("当前 Demo 的图片保存在此浏览器中。")}</p></div> : shownModal.value === 'support' ? <p className="muted">{t("当前为设计生产工作台 Demo，暂未接入在线客服。")}</p> : <div><p className="muted">{t("演示账户可用积分")}</p><p className="text-3xl font-medium my-4">99,999</p><p className="muted">{t("当前 Demo 暂未接入积分购买。")}</p></div>}</Dialog>}
   </div>;
 }

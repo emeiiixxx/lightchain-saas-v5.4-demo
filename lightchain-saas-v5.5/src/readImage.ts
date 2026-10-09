@@ -1,3 +1,4 @@
+import { rememberDemoAsset } from './demo-storage';
 import { nextCanvasTime } from './canvas-order';
 import type { CanvasImage } from './useCanvas';
 import { rememberImagePreview } from './image-previews';
@@ -8,6 +9,7 @@ export async function readImage(file: File): Promise<Omit<CanvasImage, 'x' | 'y'
   const url = URL.createObjectURL(file);
   try {
     const image = new Image(); image.src = url; await image.decode();
+    await rememberDemoAsset(url, file);
     rememberImagePreview(url, image);
     const width = Math.min(320, image.naturalWidth);
     return { id: crypto.randomUUID(), name: file.name, mimeType: file.type, origin: 'upload', uploadedAt: nextCanvasTime(), url, width, height: width * image.naturalHeight / image.naturalWidth, image };

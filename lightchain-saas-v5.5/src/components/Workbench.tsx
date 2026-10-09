@@ -1,3 +1,6 @@
+import { useInputMemory } from '../useInputMemory';
+import { readDemoState, writeDemoState, restoreDemoUrls } from '../demo-storage';
+import { retryRecordTarget } from '../retry-record';
 import { PrintPlacementDialog } from './PrintPlacementDialog';
 import { CanvasMinimap } from './CanvasMinimap';
 import { TaskFeatureTip } from './TaskFeatureTip';
@@ -128,6 +131,18 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
   const [generationRecords, setGenerationRecords] = useState<GenerationRecord[]>(initialDemoRecords);
   // Removing a list entry does not erase the accepted task behind its canvas results.
   const archivedRecords = useRef(new Map<string, GenerationRecord>());
+  const [recordsRestored, setRecordsRestored] = useState(false);
+  const resumedResults = useRef(new Set<string>());
+  useEffect(() => {
+    let active = true;
+    void restoreDemoUrls(readDemoState<{ records: GenerationRecord[]; archived: [string, GenerationRecord][] } | null>('tasks', null)).then(saved => {
+      if (!active) return;
+      if (saved) { setGenerationRecords(saved.records); archivedRecords.current = new Map(saved.archived); }
+      setRecordsRestored(true);
+    }).catch(() => { if (active) setRecordsRestored(true); });
+    return () => { active = false; };
+  }, []);
+  useEffect(() => { if (recordsRestored) writeDemoState('tasks', { records: generationRecords, archived: [...archivedRecords.current] }); }, [generationRecords, recordsRestored]);
   const currentLeftTab = useRef(leftTab);
   currentLeftTab.current = leftTab;
   const hasUnreadGeneration = unreadResults.some(key => generationRecords.some(record => record.images.some(result => `${record.id}:${result.id}` === key && result.status === 'success')));
@@ -147,7 +162,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
   const shownPrintPlacement = usePresence(printPlacement);
   const [localEdit, setLocalEdit] = useState<string | null>(null);
   const [localEditTool, setLocalEditTool] = useState<CanvasEditTool>('局部修改');
-  const [localEditDrafts, setLocalEditDrafts] = useState<Record<string, QuickEditDraft>>({});
+
   const closeLocalEdit = () => { setLocalEdit(null); board.setInteractionLocked(false); };
   const [quickEdit, setQuickEdit] = useState<string | null>(null);
   const shownElementToolbar = usePresence(!localEdit && !quickEdit && board.images.some(image => image.id === board.selected && !image.generating && !image.generationFailed) ? board.selected : null);
@@ -167,8 +182,8 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     board.setIsolatedImageId(localEdit);
     return () => board.setIsolatedImageId(null);
   }, [localEdit, board.setIsolatedImageId]);
-  // Keep each image's inputs for the canvas session, independently of menu visibility or submission.
-  const [quickEditDrafts, setQuickEditDrafts] = useState<Record<string, QuickEditDraft>>({});
+  // Drafts stay in memory while typing; R02 exit and submit actions flush them silently.
+  const inputMemory = useInputMemory(localEdit ? `${localEditTool}:${localEdit}` : quickEdit ? `quick:${quickEdit}` : null);
   const generationTimers = useRef(new Set<ReturnType<typeof setTimeout>>());
   const retryingResults = useRef(new Set<string>());
   const generatingSources = useRef(new Set<string>());
@@ -203,6 +218,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     setGenerationRecords(previous => previous.map(record => record.id === id ? failed(record) : record));
   };
   const generateQuickEdit = async (request: string, draft: QuickEditDraft, sourceId: string, independent = false) => {
+    inputMemory.flush();
     const source = board.images.find(item => item.id === sourceId);
     if (!source || generatingSources.current.has(sourceId)) return;
     const count = Math.min(4, Math.max(1, Number(draft.count) || 1));
@@ -243,13 +259,17 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     const source = board.images.find(image => image.id === record.sourceId);
     const key = `${record.id}:${result.id}`;
     if (retryingResults.current.has(key)) throw new Error('retry_unavailable');
-    const placeholder = board.beginResultRetry(key, source?.id ?? record.sourceId, record.resultRatio ?? record.ratio ?? `92:${result.height}`, record.title);
+    const target = retryRecordTarget(generationRecords, record, result, crypto.randomUUID(), new Date());
+    const targetKey = `${target.record.id}:${result.id}`;
+    const placeholder = board.beginResultRetry(key, source?.id ?? record.sourceId, record.resultRatio ?? record.ratio ?? `92:${result.height}`, record.title, targetKey);
     if (!placeholder) throw new Error('retry_unavailable');
     retryingResults.current.add(key);
+    retryingResults.current.add(targetKey);
+    if (target.isNew) setGenerationRecords(previous => [target.record, ...previous]);
     const updateStatus = (status: 'generating' | 'failed' | 'success') => {
-      const archived = archivedRecords.current.get(record.id);
-      if (archived) archivedRecords.current.set(record.id, { ...archived, images: archived.images.map(image => image.id === result.id ? { ...image, status } : image) });
-      setGenerationRecords(previous => previous.map(item => item.id === record.id
+      const archived = archivedRecords.current.get(target.record.id);
+      if (archived) archivedRecords.current.set(target.record.id, { ...archived, images: archived.images.map(image => image.id === result.id ? { ...image, status } : image) });
+      setGenerationRecords(previous => previous.map(item => item.id === target.record.id
         ? { ...item, images: item.images.map(image => image.id === result.id ? { ...image, status } : image) }
         : item));
     };
@@ -265,7 +285,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
       if (generationMounted.current) {
         board.finishGeneration([placeholder.id], [loaded]);
         updateStatus('success');
-        markSuccess(record.id, [result.id]);
+        markSuccess(target.record.id, [result.id]);
       }
       return loaded;
     } catch (error) {
@@ -274,7 +294,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
         updateStatus('failed');
       }
       throw error;
-    } finally { retryingResults.current.delete(key); }
+    } finally { retryingResults.current.delete(key); retryingResults.current.delete(targetKey); }
   };
   const retryCanvasImage = (key: string) => {
     const record = [...generationRecords, ...archivedRecords.current.values()].find(item => item.images.some(result => `${item.id}:${result.id}` === key));
@@ -309,6 +329,29 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
       onNotify('图片加载失败，请重试', 'error');
     }
   };
+  useEffect(() => {
+    if (!recordsRestored || !board.restored) return;
+    for (const record of [...generationRecords, ...archivedRecords.current.values()]) {
+      for (const result of record.images) {
+        const key = `${record.id}:${result.id}`;
+        const tile = board.images.find(image => image.taskResultId === key && image.generating);
+        if (!tile || result.status !== 'generating' || resumedResults.current.has(key)) continue;
+        // Only recover placeholders loaded from storage, not currently running submissions.
+        if (generationTimers.current.size || retryingResults.current.size || generatingSources.current.size) continue;
+        resumedResults.current.add(key);
+        void prepareDemoResults().then(assets => {
+          if (!generationMounted.current) return;
+          const loaded = assets[0];
+          board.finishGeneration([tile.id], [loaded], true);
+          const complete = (item: GenerationRecord) => ({ ...item, generating: false, images: item.images.map(image => image.id === result.id ? { ...image, url: loaded.url, status: 'success' as const } : image) });
+          setGenerationRecords(previous => previous.map(item => item.id === record.id ? complete(item) : item));
+          const archived = archivedRecords.current.get(record.id);
+          if (archived) archivedRecords.current.set(record.id, complete(archived));
+          markSuccess(record.id, [result.id!]);
+        }).catch(() => { resumedResults.current.delete(key); });
+      }
+    }
+  }, [recordsRestored, board.restored]);
   const quickEditVisible = usePresence(quickEdit === board.selected ? quickEdit : null);
   const rotationLocked = !!localEdit || !!quickEdit;
   useEffect(() => { setQuickEdit(null); }, [board.selected]);
@@ -511,19 +554,11 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
         </>}
       </div>
     </aside>}
-    {!localEdit && quickEditVisible.value && board.images.find(item => item.id === quickEditVisible.value) && <QuickEditComposer onNotify={onNotify} key={quickEditVisible.value} draft={quickEditDrafts[quickEditVisible.value] ?? createQuickEditDraft()} onDraftChange={update => {
-      const imageId = quickEditVisible.value!;
-      setQuickEditDrafts(previous => {
-        const current = previous[imageId] ?? createQuickEditDraft();
-        return { ...previous, [imageId]: typeof update === 'function' ? update(current) : update };
-      });
+    {!localEdit && quickEditVisible.value && board.images.find(item => item.id === quickEditVisible.value) && <QuickEditComposer onNotify={onNotify} key={quickEditVisible.value} draft={inputMemory.drafts[`quick:${quickEditVisible.value}`] ?? createQuickEditDraft()} onDraftChange={update => {
+      inputMemory.update(`quick:${quickEditVisible.value}`, update);
     }} uploads={uploads} onUpload={onRememberUpload} board={board} image={board.images.find(item => item.id === quickEditVisible.value)!} phase={quickEditVisible.phase} onClose={() => setQuickEdit(null)} generating={generatingSources.current.has(quickEditVisible.value)} onSubmit={(request, draft) => { void generateQuickEdit(request, draft, quickEditVisible.value!); }} />}
-    {localEdit && selected && <QuickEditComposer onNotify={onNotify} key={`local-${localEditTool}-${localEdit}`} localEdit tool={localEditTool} onAdjustPrint={draft => setPrintPlacement({ source: selected, draft })} draft={localEditDrafts[`${localEditTool}:${localEdit}`] ?? createQuickEditDraft()} onDraftChange={update => {
-      const imageId = `${localEditTool}:${localEdit}`;
-      setLocalEditDrafts(previous => {
-        const current = previous[imageId] ?? createQuickEditDraft();
-        return { ...previous, [imageId]: typeof update === 'function' ? update(current) : update };
-      });
+    {localEdit && selected && <QuickEditComposer onNotify={onNotify} key={`local-${localEditTool}-${localEdit}`} localEdit tool={localEditTool} onAdjustPrint={draft => setPrintPlacement({ source: selected, draft })} draft={inputMemory.drafts[`${localEditTool}:${localEdit}`] ?? createQuickEditDraft()} onDraftChange={update => {
+      inputMemory.update(`${localEditTool}:${localEdit}`, update);
     }} uploads={uploads} onUpload={onRememberUpload} board={board} image={selected} phase="enter" onClose={closeLocalEdit} generating={generatingSources.current.has(localEdit)} onSubmit={(request, draft) => { void generateQuickEdit(request, draft, localEdit, true); }} />}
     {shownPrintPlacement.value && <PrintPlacementDialog source={shownPrintPlacement.value.source} draft={shownPrintPlacement.value.draft} phase={shownPrintPlacement.phase} onNotify={onNotify} onClose={() => setPrintPlacement(null)} onConfirm={() => {
       if (!printPlacement) return;

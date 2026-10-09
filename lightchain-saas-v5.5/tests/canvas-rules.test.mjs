@@ -7,8 +7,8 @@ import { pathToFileURL } from 'node:url';
 const directory = await mkdtemp(join(tmpdir(), 'lightchain-rules-'));
 try {
   const file = join(directory, 'rules.mjs');
-  await build({ stdin: { contents: `export * from './src/generation-placement'; export * from './src/canvas-arrangement'; export * from './src/canvas-order'; export * from './src/project-cover';`, resolveDir: process.cwd() }, bundle: true, platform: 'node', format: 'esm', outfile: file });
-  const { placeResultBatch, arrangeBoxes, orderArrangementUnits, resolveProjectCover } = await import(pathToFileURL(file).href);
+  await build({ stdin: { contents: `export * from './src/generation-placement'; export * from './src/canvas-arrangement'; export * from './src/canvas-order'; export * from './src/project-cover'; export * from './src/retry-record';`, resolveDir: process.cwd() }, bundle: true, platform: 'node', format: 'esm', outfile: file });
+  const { placeResultBatch, arrangeBoxes, orderArrangementUnits, resolveProjectCover, retryRecordTarget } = await import(pathToFileURL(file).href);
   const image = (id, x=0, y=0, width=100, height=100, extra={}) => ({ id, x, y, width, height, url:'fixture', name:id, ...extra });
   const source = image('source');
   const upper = image('upper',140,-80,100,120);
@@ -39,5 +39,17 @@ try {
   assert.equal(resolveProjectCover([{...generated,cover:true},uploaded,failed]).id,'generated');
   assert.equal(resolveProjectCover([generated,failed]).id,'generated');
   assert.equal(resolveProjectCover([failed]),undefined);
+  const failedResult = {id:'failed', url:'asset',height:120,status:'failed'};
+  const task = {id:'original',title:'test',time:'old',count:4,prompt:'kept',tags:[],images:[{id:'ok1'}, {id:'ok2'}, failedResult, {id:'ok3'}]};
+  const existingRetry = retryRecordTarget([task],task,failedResult,'unused',new Date());
+  assert.equal(existingRetry.isNew,false);
+  const remaining={...task,images:task.images.filter(i=>i.id!=='failed')};
+  const fresh=retryRecordTarget([remaining],task,failedResult,'single',new Date());
+  assert.equal(fresh.isNew,true);assert.equal(fresh.record.count,1);assert.equal(fresh.record.images.length,1);
+  assert.equal(remaining.images.length,3);assert.equal(fresh.record.prompt,'kept');
+  assert.equal(retryRecordTarget([],task,failedResult,'after-delete',new Date()).isNew,true);
+  const failedAgain={...fresh.record,images:[failedResult]};
+  assert.equal(retryRecordTarget([remaining,failedAgain],failedAgain,failedResult,'unused',new Date()).isNew,false);
+  console.log('PASS: deleted result/record retries create exactly one new task; subsequent retries reuse it');
   console.log('PASS: collision chains, whole groups, layer order, three layouts and cover fallback');
 } finally { await rm(directory,{recursive:true,force:true}); }
