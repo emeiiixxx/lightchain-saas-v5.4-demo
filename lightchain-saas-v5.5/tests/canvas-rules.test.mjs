@@ -7,22 +7,9 @@ import { pathToFileURL } from 'node:url';
 const directory = await mkdtemp(join(tmpdir(), 'lightchain-rules-'));
 try {
   const file = join(directory, 'rules.mjs');
-  await build({ stdin: { contents: `export * from './src/generation-placement'; export * from './src/canvas-arrangement'; export * from './src/canvas-order'; export * from './src/project-cover'; export * from './src/retry-record';`, resolveDir: process.cwd() }, bundle: true, platform: 'node', format: 'esm', outfile: file });
-  const { placeResultBatch, arrangeBoxes, orderArrangementUnits, resolveProjectCover, retryRecordTarget } = await import(pathToFileURL(file).href);
+  await build({ stdin: { contents: `export * from './src/canvas-arrangement'; export * from './src/canvas-order'; export * from './src/project-cover'; export * from './src/retry-record';`, resolveDir: process.cwd() }, bundle: true, platform: 'node', format: 'esm', outfile: file });
+  const { arrangeBoxes, orderArrangementUnits, resolveProjectCover, retryRecordTarget } = await import(pathToFileURL(file).href);
   const image = (id, x=0, y=0, width=100, height=100, extra={}) => ({ id, x, y, width, height, url:'fixture', name:id, ...extra });
-  const source = image('source');
-  const upper = image('upper',140,-80,100,120);
-  const lower = image('lower',380,80,100,120);
-  const pending = image('pending',520,0,100,100,{generating:true});
-  const existing=[source,upper,lower,pending];
-  const saved=JSON.stringify(existing);
-  const batch=[image('a',140),image('b',280)];
-  const placed=placeResultBatch(existing,batch);
-  assert.deepEqual(placed.map(i=>i.x),[660,800]);
-  assert.equal(JSON.stringify(existing),saved,'inserting a batch must not move existing objects');
-  assert.equal(placed[1].x-placed[0].x,140,'batch spacing preserved');
-  const group=[image('g1',140,-200,100,100,{groupId:'g'}),image('g2',340,200,100,100,{groupId:'g'})];
-  assert.equal(placeResultBatch(group,[image('r',240,0)])[0].x,480,'group interior remains reserved');
   const a=image('a'),b=image('b',0,0,100,100,{groupId:'g'}),c=image('c',0,0,100,100,{groupId:'g'}),d=image('d');
   assert.deepEqual(orderArrangementUnits([[a],[b,c],[d]],[a,b,c,d]).map(u=>u.map(i=>i.id)),[['d'],['b','c'],['a']]);
   const boxes=[image('1',0,0,200,90),image('2',0,0,80,300),image('3',0,0,140,140),image('4',0,0,350,70)];
@@ -51,5 +38,5 @@ try {
   const failedAgain={...fresh.record,images:[failedResult]};
   assert.equal(retryRecordTarget([remaining,failedAgain],failedAgain,failedResult,'unused',new Date()).isNew,false);
   console.log('PASS: deleted result/record retries create exactly one new task; subsequent retries reuse it');
-  console.log('PASS: collision chains, whole groups, layer order, three layouts and cover fallback');
+  console.log('PASS: whole groups, layer order, three layouts and cover fallback');
 } finally { await rm(directory,{recursive:true,force:true}); }

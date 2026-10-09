@@ -3,7 +3,6 @@ import { resolveProjectCover } from './project-cover';
 import type { Notify } from './notification';
 import { CanvasIsolationCache, paintCanvasImage, paintCanvasScene, type CanvasPalette } from './canvas-renderer';
 import { nextCanvasTime, orderArrangementUnits } from './canvas-order';
-import { placeResultBatch } from './generation-placement';
 import { MOTION_DURATION, easeOut } from './motion';
 import { downloadSelection } from './download-selection';
 import { arrangeBoxes, type CanvasLayout } from './canvas-arrangement';
@@ -476,7 +475,7 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     setImages(next); setSelected(additions[0].id); fit();
   }, [fit, remember, worldPoint, finishPlacement]);
 
-  // Start beside the source (or its whole group), then shift only the new batch right.
+  // Insert directly beside the source image, allowing overlap with existing objects.
   const beginGeneration = useCallback((sourceId: string | undefined, count: number, ratio: string, fallback?: { name?: string; taskRecordId?: string }) => {
     finishPlacement();
     const state = live.current, existingSource = state.images.find(item => item.id === sourceId);
@@ -494,19 +493,19 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     const [rw, rh] = ratio.split(':').map(Number);
     const height = source.height;
     const width = rw > 0 && rh > 0 ? height * rw / rh : source.width || 400;
-    const anchor = selectionBounds(source.groupId ? state.images.filter(image => image.groupId === source.groupId) : [source]);
+    const anchor = selectionBounds([source]);
     const gap = 40;
     const x = !existingSource && !content ? center.x - (count * width + (count - 1) * gap) / 2 : anchor.x + anchor.width + gap;
     const y = !existingSource && !content ? center.y - height / 2 : anchor.y;
     const batchId = crypto.randomUUID();
-    const additions = placeResultBatch(state.images, Array.from({ length: count }, (_, index): CanvasImage => ({
+    const additions = Array.from({ length: count }, (_, index): CanvasImage => ({
       id: crypto.randomUUID(), addedAt: nextCanvasTime(), name: `${source.name} · ${index + 1}`, image: source.image, url: source.url,
       generationParentId: source.id, generationRootId: source.generationRootId ?? source.id,
       generationRootAddedAt: source.generationRootAddedAt ?? source.addedAt ?? 0,
       generationBatchId: batchId, generationIndex: index, origin: 'generated',
       x: x + index * (width + gap), y,
       width, height, generating: true, fit: 'cover',
-    })));
+    }));
     if (fallback?.taskRecordId) additions.forEach(item => { item.taskResultId = `${fallback.taskRecordId}:${item.id}`; });
     remember(state.images);
     const next = [...state.images, ...additions];
