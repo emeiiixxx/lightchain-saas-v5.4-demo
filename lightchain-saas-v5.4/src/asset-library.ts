@@ -99,6 +99,5 @@ export async function prepareMainImage(asset: LibraryImage): Promise<Omit<Canvas
   const image = new Image();
   image.src = asset.url;
   await image.decode();
-  const width = Math.min(320, image.naturalWidth);
-  return { id: crypto.randomUUID(), name: asset.name, mimeType: asset.mimeType, uploadedAt: asset.uploadedAt, url: asset.url, width, height: width * image.naturalHeight / image.naturalWidth, image };
+  return { id: crypto.randomUUID(), name: asset.name, mimeType: asset.mimeType, uploadedAt: asset.uploadedAt, url: asset.url, width: image.naturalWidth, height: image.naturalHeight, image };
 }

@@ -549,7 +549,7 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     if (!accepted.length) return;
     const results = await Promise.allSettled(accepted.map(file => new Promise<Omit<CanvasImage, 'x' | 'y'>>((resolve, reject) => {
       const url = URL.createObjectURL(file), image = new Image(); urls.current.push(url);
-      image.onload = async () => { try { await rememberDemoAsset(url, file); } catch (error) { reject(error); return; } const ratio = Math.min(1, 400 / Math.max(image.naturalWidth, image.naturalHeight)); resolve({ id: crypto.randomUUID(), name: file.name, mimeType: file.type, origin: 'upload', uploadedAt: nextCanvasTime(), image, url, width: image.naturalWidth * ratio, height: image.naturalHeight * ratio }); };
+      image.onload = async () => { try { await rememberDemoAsset(url, file); } catch (error) { reject(error); return; } resolve({ id: crypto.randomUUID(), name: file.name, mimeType: file.type, origin: 'upload', uploadedAt: nextCanvasTime(), image, url, width: image.naturalWidth, height: image.naturalHeight }); };
       image.onerror = reject; image.src = url;
     })));
     const loaded = results.flatMap(r => r.status === 'fulfilled' ? [r.value] : []);
