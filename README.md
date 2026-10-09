@@ -7,7 +7,7 @@
 本地运行：
 
 ```sh
-cd lightchain-saas-v5.5
+cd lightchain-saas-v5.4
 npm ci
 npm run dev
 ```

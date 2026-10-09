@@ -22,19 +22,19 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     defaults:
       run:
-        working-directory: lightchain-saas-v5.5
+        working-directory: lightchain-saas-v5.4
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: lightchain-saas-v5.5/package-lock.json
+          cache-dependency-path: lightchain-saas-v5.4/package-lock.json
       - run: npm ci
       - run: npm run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: lightchain-saas-v5.5/dist
+          path: lightchain-saas-v5.4/dist
       - id: deployment
         uses: actions/deploy-pages@v4
