@@ -93,10 +93,10 @@ const tabs = [
   { value: 'history', label: '任务', en: 'Tasks', ja: 'タスク', icon: 'generation-record-imgDefaultIcon2' },
 ] as const;
 
-export function CanvasLeftPanel({ tab, hasSelectedElement, onTabChange, onClose, records, unread, uploads, onUpload, onNotify, onRegenerate, onDeleteRecord, onDeleteResult, layersDisabled = false }: {
+export function CanvasLeftPanel({ tab, hasSelectedElement, onTabChange, onClose, records, uploads, onUpload, onNotify, onRegenerate, onDeleteRecord, onDeleteResult, layersDisabled = false }: {
   hasSelectedElement: boolean; layersDisabled?: boolean;
   tab: LeftPanelTab | null; onTabChange: (tab: LeftPanelTab) => void; onClose: () => void;
-  records: GenerationRecord[]; unread: boolean; uploads: LibraryImage[]; onUpload: (image: LibraryImage) => void; onNotify: Notify;
+  records: GenerationRecord[]; uploads: LibraryImage[]; onUpload: (image: LibraryImage) => void; onNotify: Notify;
   onRegenerate: (record: GenerationRecord) => void; onDeleteRecord: (id: string) => void; onDeleteResult: (id: string, index: number) => void;
 }) {
   const { t, locale } = useLocale();
@@ -180,7 +180,7 @@ export function CanvasLeftPanel({ tab, hasSelectedElement, onTabChange, onClose,
             const index = available.findIndex(tab => tab.value === item.value);
             const next = event.key === 'Home' ? 0 : event.key === 'End' ? available.length - 1 : (index + (event.key === 'ArrowLeft' ? -1 : 1) + available.length) % available.length;
             onTabChange(available[next].value); document.getElementById(`left-panel-tab-${available[next].value}`)?.focus();
-          }}><Icon name={item.icon} size={16} /><span className="left-panel-tab-label">{locale === 'en' ? item.en : locale === 'ja' ? item.ja : item.label}</span>{item.value === 'history' && unread && <span className="tool-unread-dot" aria-hidden="true" />}</button>)}
+          }}><Icon name={item.icon} size={16} /><span className="left-panel-tab-label">{locale === 'en' ? item.en : locale === 'ja' ? item.ja : item.label}</span></button>)}
         </div>
         <IconButton className="left-panel-close" size="l" icon="generation-record-imgIcon" aria-label={t('收起左侧栏')} onClick={onClose} />
       </header>

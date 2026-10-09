@@ -40,8 +40,8 @@ const demoConversation: AgentMessage[] = [
   { role: 'user', text: '雾绿这版更接近想要的效果。再看一下正面细节。', images: ['/assets/generation-record-imgAsset6.jpg'], demo: true },
   { role: 'assistant', text: '这是当前方向的正面参考。领口、腰线和袖口都沿用前面的要求。', images: ['/assets/generation-record-imgAsset6.jpg'], demo: true },
 ];
-function Tool({ id, icon, label, active, onClick, disabled, size = 20, unread = false }: { id?: string; icon: string; label: string; active?: boolean; onClick: () => void; disabled?: boolean; size?: number; unread?: boolean }) {
-  return <Button id={id} aria-label={label} title={label} aria-pressed={active} className={`workbench-tool ${active ? 'is-active' : ''}`} disabled={disabled} onClick={onClick}><Icon name={icon} size={size} />{unread && <span className="tool-unread-dot" aria-hidden="true" />}</Button>;
+function Tool({ id, icon, label, active, onClick, disabled, size = 20 }: { id?: string; icon: string; label: string; active?: boolean; onClick: () => void; disabled?: boolean; size?: number }) {
+  return <Button id={id} aria-label={label} title={label} aria-pressed={active} className={`workbench-tool ${active ? 'is-active' : ''}`} disabled={disabled} onClick={onClick}><Icon name={icon} size={size} /></Button>;
 }
 function NumberField({ label, prefix, value, min, max, unit, begin, change, disabled }: { label: string; prefix?: string; value: number; min?: number; max?: number; unit?: string; disabled?: boolean; begin: () => void; change: (n: number) => void }) {
   return <label className="property-number">{prefix && <span>{prefix}</span>}<input disabled={disabled} aria-label={label} type="number" value={Math.round(value * 10) / 10} min={min} max={max} step="1" onFocus={begin} onChange={e => { const n = e.currentTarget.valueAsNumber; if (Number.isFinite(n)) change(Math.min(max ?? Infinity, Math.max(min ?? -Infinity, n))); }} onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }} />{unit && <span>{unit}</span>}</label>;
@@ -106,7 +106,6 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
   const [menu, setMenu] = useState<string | null>(null);
   const [minimapOpen, setMinimapOpen] = useState(false);
   const shownMinimap = usePresence(minimapOpen && !board.locked ? true : null);
-  const [unreadResults, setUnreadResults] = useState<string[]>([]);
   const [leftTab, setLeftTab] = useState<LeftPanelTab | null>(null);
   useLayoutEffect(() => {
     const bottom = bottomToolsRef.current;
@@ -146,13 +145,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     return () => { active = false; };
   }, []);
   useEffect(() => { if (recordsRestored) writeDemoState('tasks', { records: generationRecords, archived: [...archivedRecords.current] }); }, [generationRecords, recordsRestored]);
-  const currentLeftTab = useRef(leftTab);
-  currentLeftTab.current = leftTab;
-  const hasUnreadGeneration = unreadResults.some(key => generationRecords.some(record => record.images.some(result => `${record.id}:${result.id}` === key && result.status === 'success')));
-  const markSuccess = (recordId: string, resultIds: string[]) => {
-    if (currentLeftTab.current !== 'history') setUnreadResults(previous => [...new Set([...previous, ...resultIds.map(id => `${recordId}:${id}`)])]);
-  };
-  const openLeftPanel = (value: LeftPanelTab) => { setLeftTab(value); if (value === 'history') setUnreadResults([]); else if (value === 'assets' || board.selectedIds.length > 0) onNotify(demoNotice(locale)); };
+  const openLeftPanel = (value: LeftPanelTab) => { setLeftTab(value); if (value === 'assets' || board.selectedIds.length > 0) onNotify(demoNotice(locale)); };
   // Demo submissions stand in for new generation records until generation is connected.
   const recordGenerationRequest = (request: string, title = "AI助手") => {
     setConversation(previous => [...previous, { role: 'user', text: request }, { role: 'assistant', text: '已记录设计需求。当前为交互 Demo，暂未接入 AI 生成。' }]);
@@ -211,7 +204,6 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     setGenerationRecords(previous => previous.map(record => record.id === recordId ? { ...record, generating: false, images: images.filter(image => record.images.some(current => current.id === image.id)) } : record));
     const archived = archivedRecords.current.get(recordId);
     if (archived) archivedRecords.current.set(recordId, { ...archived, generating: false, images });
-    markSuccess(recordId, images.filter(image => image.status === 'success').map(image => image.id!));
   };
   const failDemoBatch = (id: string, placeholders: CanvasImage[]) => {
     board.finishGeneration(placeholders.map(item => item.id), null, true);
@@ -287,7 +279,6 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
       if (generationMounted.current) {
         board.finishGeneration([placeholder.id], [loaded]);
         updateStatus('success');
-        markSuccess(target.record.id, [result.id]);
       }
       return loaded;
     } catch (error) {
@@ -349,7 +340,6 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
           setGenerationRecords(previous => previous.map(item => item.id === record.id ? complete(item) : item));
           const archived = archivedRecords.current.get(record.id);
           if (archived) archivedRecords.current.set(record.id, complete(archived));
-          markSuccess(record.id, [result.id!]);
         }).catch(() => { resumedResults.current.delete(key); });
       }
     }
@@ -447,9 +437,9 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     {!leftTab && <div className="left-tools wb-surface" data-canvas-ui data-phase="enter" role="toolbar" aria-label={t("画布功能栏")}>
       <Tool icon="canvas-imgIconEditor7" label={t("图层")} disabled={!!localEdit} size={24} onClick={() => openLeftPanel('layers')} />
       <Tool icon="canvas-imgIconSystem6" label={t("资产")} size={24} onClick={() => openLeftPanel('assets')} />
-      <Tool id="canvas-task-entry" icon="canvas-imgIcon2" label={t("任务")} size={24} unread={hasUnreadGeneration} onClick={() => openLeftPanel('history')} />
+      <Tool id="canvas-task-entry" icon="canvas-imgIcon2" label={t("任务")} size={24} onClick={() => openLeftPanel('history')} />
     </div>}
-    <CanvasLeftPanel layersDisabled={!!localEdit} tab={leftTab} hasSelectedElement={board.selectedIds.length > 0} onTabChange={openLeftPanel} onClose={() => setLeftTab(null)} records={generationRecords} unread={hasUnreadGeneration} uploads={uploads} onUpload={onRememberUpload} onNotify={onNotify} onRegenerate={record => void regenerateRecord(record)} onDeleteRecord={id => { const record = generationRecords.find(item => item.id === id); if (record && !archivedRecords.current.has(id)) archivedRecords.current.set(id, record); setGenerationRecords(previous => previous.filter(record => record.id !== id)); }} onDeleteResult={(id, index) => setGenerationRecords(previous => previous.flatMap(record => {
+    <CanvasLeftPanel layersDisabled={!!localEdit} tab={leftTab} hasSelectedElement={board.selectedIds.length > 0} onTabChange={openLeftPanel} onClose={() => setLeftTab(null)} records={generationRecords} uploads={uploads} onUpload={onRememberUpload} onNotify={onNotify} onRegenerate={record => void regenerateRecord(record)} onDeleteRecord={id => { const record = generationRecords.find(item => item.id === id); if (record && !archivedRecords.current.has(id)) archivedRecords.current.set(id, record); setGenerationRecords(previous => previous.filter(record => record.id !== id)); }} onDeleteResult={(id, index) => setGenerationRecords(previous => previous.flatMap(record => {
       if (record.id !== id) return [record];
       if (!archivedRecords.current.has(id)) archivedRecords.current.set(id, record);
       const images = record.images.filter((_, imageIndex) => imageIndex !== index);

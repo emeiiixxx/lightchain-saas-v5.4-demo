@@ -12,7 +12,6 @@
 .bottom-tools .workbench-tool:disabled { color: var(--text-disabled); background: transparent; opacity: 1; }
 .left-tools { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); padding: 8px; display: flex; flex-direction: column; gap: 8px; border-radius: var(--radius-xl); z-index: 12; box-shadow: var(--shadow-l); }
 .left-tools > .workbench-tool { position: relative; width: 40px; height: 40px; border-radius: var(--radius-l); }
-.tool-unread-dot { position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: var(--radius-max); background: var(--status-danger); pointer-events: none; }
 .bottom-tools { position: absolute; z-index: 12; bottom: var(--bottom-tools-bottom, 16px); left: 50%; transform: translateX(calc(-50% - var(--bottom-tools-shift, 0px))); display: flex; align-items: center; gap: 4px; padding: 8px; }
 .bottom-tools[data-phase] { transition-property: bottom, transform; }
 .bottom-tools > .divider { margin: 0 4px; }
