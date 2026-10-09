@@ -64,18 +64,21 @@ export function paintCanvasImage(ctx: CanvasRenderingContext2D, img: CanvasImage
   ctx.restore();
 }
 
-function paintPendingTile(ctx: CanvasRenderingContext2D, img: CanvasImage, palette: CanvasPalette) {
+function paintPendingTile(ctx: CanvasRenderingContext2D, img: CanvasImage, palette: CanvasPalette, zoom: number) {
   ctx.save();
   ctx.translate(img.x + img.width / 2, img.y + img.height / 2);
   ctx.rotate((img.rotation ?? 0) * Math.PI / 180);
   ctx.beginPath(); ctx.rect(-img.width / 2, -img.height / 2, img.width, img.height); ctx.clip();
   ctx.fillStyle = palette.surface; ctx.fillRect(-img.width / 2, -img.height / 2, img.width, img.height);
   // Static indeterminate marker while isolated. The task itself continues normally.
-  const width = Math.min(img.width * .6, 240), height = 8;
-  ctx.fillStyle = palette.track; ctx.beginPath(); ctx.roundRect(-width / 2, -16, width, height, height / 2); ctx.fill();
-  ctx.fillStyle = palette.progress; ctx.beginPath(); ctx.roundRect(-width * .15, -16, width * .3, height, height / 2); ctx.fill();
-  ctx.fillStyle = palette.text; ctx.font = `12px ${palette.fontFamily}`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText(palette.loadingLabel, 0, 0);
+  const width = Math.max(0, Math.min(Math.max(img.width * .6, 80 / zoom), Math.max(240, 80 / zoom), img.width - 16 / zoom));
+  const height = Math.max(8, 4 / zoom), gap = Math.max(8, 4 / zoom);
+  const fontSize = Math.max(12, 12 / zoom), lineHeight = Math.max(16, 16 / zoom);
+  const top = -(height + gap + lineHeight) / 2;
+  ctx.fillStyle = palette.track; ctx.beginPath(); ctx.roundRect(-width / 2, top, width, height, height / 2); ctx.fill();
+  ctx.fillStyle = palette.progress; ctx.beginPath(); ctx.roundRect(-width * .15, top, width * .3, height, height / 2); ctx.fill();
+  ctx.fillStyle = palette.text; ctx.font = `${fontSize}px ${palette.fontFamily}`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(palette.loadingLabel, 0, top + height + gap);
   ctx.restore();
 }
 
@@ -83,7 +86,7 @@ export function paintCanvasScene(ctx: CanvasRenderingContext2D, images: CanvasIm
   ctx.save(); ctx.translate(camera.x, camera.y); ctx.scale(camera.zoom, camera.zoom);
   for (const image of images) {
     if (image.id === excludedId || !visible(image, camera, viewport)) continue;
-    if (image.generating) { if (includePending) paintPendingTile(ctx, image, palette); }
+    if (image.generating) { if (includePending) paintPendingTile(ctx, image, palette, camera.zoom); }
     else paintCanvasImage(ctx, image, palette);
   }
   ctx.restore();
