@@ -197,7 +197,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     // Demo only: batches of four always include one retryable failure.
     const images: GenerationRecord['images'] = results.map((result, index) => ({
       id: placeholders[index].id, url: result.url,
-      height: results.length === 4 && index === 2 ? 92 * 4 / 3 : 92 * result.image.naturalHeight / result.image.naturalWidth,
+      height: results.length === 4 && index === 2 ? 92 * placeholders[index].height / placeholders[index].width : 92 * result.image.naturalHeight / result.image.naturalWidth,
       status: results.length === 4 && index === 2 ? 'failed' : 'success',
     }));
     board.finishGeneration(placeholders.map(item => item.id), results.map((result, index) => images[index].status === 'failed' ? null : result), true);
@@ -261,7 +261,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     retryingResults.current.add(targetKey);
     if (target.isNew) setGenerationRecords(previous => [target.record, ...previous]);
     const updateStatus = (status: 'generating' | 'failed' | 'success', loaded?: Omit<CanvasImage, 'x' | 'y'>) => {
-      const patch = { status, height: loaded ? 92 * loaded.image.naturalHeight / loaded.image.naturalWidth : 92 * 4 / 3 };
+      const patch = { status, height: loaded ? 92 * loaded.image.naturalHeight / loaded.image.naturalWidth : 92 * placeholder.height / placeholder.width };
       const archived = archivedRecords.current.get(target.record.id);
       if (archived) archivedRecords.current.set(target.record.id, { ...archived, images: archived.images.map(image => image.id === result.id ? { ...image, ...patch } : image) });
       setGenerationRecords(previous => previous.map(item => item.id === target.record.id
@@ -302,7 +302,18 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     const source = board.images.find(image => image.id === record.sourceId);
     const id = crypto.randomUUID();
     const count = record.count ?? Math.max(1, record.images.length);
-    const placeholders = board.beginGeneration(source?.id ?? record.sourceId, count, { name: record.title, taskRecordId: id });
+    let sourceSize: { width: number; height: number } | undefined;
+    if (!source) {
+      const inputUrl = record.tags.find(tag => tag.image)?.image;
+      if (inputUrl) {
+        try {
+          const input = await prepareMainImage({ id: inputUrl, url: inputUrl, name: record.title });
+          sourceSize = { width: input.width, height: input.height };
+        } catch { /* An unavailable historical input uses the default loading size. */ }
+      }
+      if (!generationMounted.current) return;
+    }
+    const placeholders = board.beginGeneration(source?.id ?? record.sourceId, count, { name: record.title, taskRecordId: id, sourceSize });
     if (!placeholders.length) return;
     const now = new Date();
     const time = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;

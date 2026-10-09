@@ -476,7 +476,7 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
   }, [fit, remember, worldPoint, finishPlacement]);
 
   // Insert directly beside the source image, allowing overlap with existing objects.
-  const beginGeneration = useCallback((sourceId: string | undefined, count: number, fallback?: { name?: string; taskRecordId?: string }) => {
+  const beginGeneration = useCallback((sourceId: string | undefined, count: number, fallback?: { name?: string; taskRecordId?: string; sourceSize?: { width: number; height: number } }) => {
     finishPlacement();
     const state = live.current, existingSource = state.images.find(item => item.id === sourceId);
     if (existingSource?.generating || existingSource?.generationFailed || (!existingSource && !fallback)) return [];
@@ -490,9 +490,9 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
       x: content ? content.x + content.width : center.x - 240,
       y: content?.y ?? center.y - 200, width: 0, height: 400, addedAt: nextCanvasTime(),
     };
-    // Output dimensions are unknown until decoding; loading always uses 3:4.
-    const height = source.height;
-    const width = height * 3 / 4;
+    // Loading follows the input image; decoded results supply their own dimensions.
+    const height = existingSource?.height ?? fallback?.sourceSize?.height ?? source.height;
+    const width = existingSource?.width ?? fallback?.sourceSize?.width ?? height;
     const anchor = selectionBounds([source]);
     const gap = 40;
     const x = !existingSource && !content ? center.x - (count * width + (count - 1) * gap) / 2 : anchor.x + anchor.width + gap;
@@ -518,7 +518,7 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     finishPlacement();
     const existing = live.current.images.find(item => item.taskResultId === resultId || item.id === resultId);
     if (!existing || existing.generating || !existing.generationFailed) return null;
-    const placeholder = { ...existing, width: existing.height * 3 / 4, generating: true, generationFailed: false, taskResultId: targetResultId };
+    const placeholder = { ...existing, generating: true, generationFailed: false, taskResultId: targetResultId };
     const next = live.current.images.map(item => item.id === existing.id ? placeholder : item);
     live.current.images = next; setImages(next);
     return placeholder;
