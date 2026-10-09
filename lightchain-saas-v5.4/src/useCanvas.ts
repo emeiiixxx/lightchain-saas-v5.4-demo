@@ -476,7 +476,7 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
   }, [fit, remember, worldPoint, finishPlacement]);
 
   // Insert directly beside the source image, allowing overlap with existing objects.
-  const beginGeneration = useCallback((sourceId: string | undefined, count: number, ratio: string, fallback?: { name?: string; taskRecordId?: string }) => {
+  const beginGeneration = useCallback((sourceId: string | undefined, count: number, fallback?: { name?: string; taskRecordId?: string }) => {
     finishPlacement();
     const state = live.current, existingSource = state.images.find(item => item.id === sourceId);
     if (existingSource?.generating || existingSource?.generationFailed || (!existingSource && !fallback)) return [];
@@ -490,9 +490,9 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
       x: content ? content.x + content.width : center.x - 240,
       y: content?.y ?? center.y - 200, width: 0, height: 400, addedAt: nextCanvasTime(),
     };
-    const [rw, rh] = ratio.split(':').map(Number);
+    // Output dimensions are unknown until decoding; loading always uses 3:4.
     const height = source.height;
-    const width = rw > 0 && rh > 0 ? height * rw / rh : source.width || 400;
+    const width = height * 3 / 4;
     const anchor = selectionBounds([source]);
     const gap = 40;
     const x = !existingSource && !content ? center.x - (count * width + (count - 1) * gap) / 2 : anchor.x + anchor.width + gap;
@@ -518,7 +518,7 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     finishPlacement();
     const existing = live.current.images.find(item => item.taskResultId === resultId || item.id === resultId);
     if (!existing || existing.generating || !existing.generationFailed) return null;
-    const placeholder = { ...existing, generating: true, generationFailed: false, taskResultId: targetResultId };
+    const placeholder = { ...existing, width: existing.height * 3 / 4, generating: true, generationFailed: false, taskResultId: targetResultId };
     const next = live.current.images.map(item => item.id === existing.id ? placeholder : item);
     live.current.images = next; setImages(next);
     return placeholder;
@@ -533,7 +533,7 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     const settle = (items: CanvasImage[]) => items.flatMap(item => {
       if (!resultById.has(item.id)) return [item];
       const result = resultById.get(item.id);
-      return result ? [{ ...item, name: result.name, url: result.url, image: result.image, mimeType: result.mimeType, generatedAt: result.generatedAt, generating: false, generationFailed: false }] : preserveFailure ? [{ ...item, generating: false, generationFailed: true }] : [];
+      return result ? [{ ...item, name: result.name, url: result.url, image: result.image, width: result.image.naturalWidth, height: result.image.naturalHeight, mimeType: result.mimeType, generatedAt: result.generatedAt, generating: false, generationFailed: false }] : preserveFailure ? [{ ...item, generating: false, generationFailed: true }] : [];
     });
     // Undo/redo must never bring back a placeholder whose task has already finished.
     history.current = history.current.map(settle); future.current = future.current.map(settle);

@@ -197,7 +197,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     // Demo only: batches of four always include one retryable failure.
     const images: GenerationRecord['images'] = results.map((result, index) => ({
       id: placeholders[index].id, url: result.url,
-      height: 92 * placeholders[index].height / placeholders[index].width,
+      height: results.length === 4 && index === 2 ? 92 * 4 / 3 : 92 * result.image.naturalHeight / result.image.naturalWidth,
       status: results.length === 4 && index === 2 ? 'failed' : 'success',
     }));
     board.finishGeneration(placeholders.map(item => item.id), results.map((result, index) => images[index].status === 'failed' ? null : result), true);
@@ -218,17 +218,17 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     if (!source || generatingSources.current.has(sourceId)) return;
     const count = Math.min(4, Math.max(1, Number(draft.count) || 1));
     const id = crypto.randomUUID();
-    const placeholders = board.beginGeneration(sourceId, count, draft.ratio, { taskRecordId: id });
+    const placeholders = board.beginGeneration(sourceId, count, { taskRecordId: id });
     if (!placeholders.length) return;
     generatingSources.current.add(sourceId);
     const now = new Date();
     const time = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const isPrint = independent && localEditTool === '印花上身';
     const supportsPrompt = !isPrint;
-    setGenerationRecords(previous => [{ id, replayable: true, sourceId, title: independent ? `款式 - ${localEditTool}` : '快捷编辑', time, supportsPrompt, printMode: isPrint ? (draft.printMode ?? 'position') : undefined, prompt: supportsPrompt ? (draft.value.trim() || undefined) : undefined, generating: true, count, resultHeight: 92 * placeholders[0].height / placeholders[0].width, ratio: draft.ratio, resultRatio: `${placeholders[0].width}:${placeholders[0].height}`, resolution: draft.resolution, tags: [{ label: '服装图', image: source.url }, ...draft.references.map(ref => ({ label: independent && localEditTool === 'AI试衣' ? '模特图' : independent && localEditTool === '印花上身' ? '印花图' : '参考图', image: ref.url })), ...(isPrint ? [{ label: draft.printMode === 'repeat' ? '满印' : '指定位置' }] : [])], images: placeholders.map(item => ({ id: item.id, url: item.url, height: 92 * item.height / item.width, status: 'generating' })) }, ...previous]);
+    setGenerationRecords(previous => [{ id, replayable: true, sourceId, title: independent ? `款式 - ${localEditTool}` : '快捷编辑', time, supportsPrompt, printMode: isPrint ? (draft.printMode ?? 'position') : undefined, prompt: supportsPrompt ? (draft.value.trim() || undefined) : undefined, generating: true, count, resultHeight: 92 * placeholders[0].height / placeholders[0].width, ratio: draft.ratio, resolution: draft.resolution, tags: [{ label: '服装图', image: source.url }, ...draft.references.map(ref => ({ label: independent && localEditTool === 'AI试衣' ? '模特图' : independent && localEditTool === '印花上身' ? '印花图' : '参考图', image: ref.url })), ...(isPrint ? [{ label: draft.printMode === 'repeat' ? '满印' : '指定位置' }] : [])], images: placeholders.map(item => ({ id: item.id, url: item.url, height: 92 * item.height / item.width, status: 'generating' })) }, ...previous]);
     if (!independent) setConversation(previous => [...previous, { role: 'user', text: request }, { role: 'assistant', text: '已记录设计需求。当前为交互 Demo，暂未接入 AI 生成。' }]);
     setQuickEdit(null);
-    // Find space for the whole batch to the source's right; keep existing content and viewport fixed.
+    // Place loading tiles directly to the source's right, allowing overlaps.
     if (independent) closeLocalEdit();
     // Decode in parallel with the demo delay, so loading starts immediately and lasts 3s.
     const delay = new Promise<void>(resolve => {
@@ -260,11 +260,12 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     retryingResults.current.add(key);
     retryingResults.current.add(targetKey);
     if (target.isNew) setGenerationRecords(previous => [target.record, ...previous]);
-    const updateStatus = (status: 'generating' | 'failed' | 'success') => {
+    const updateStatus = (status: 'generating' | 'failed' | 'success', loaded?: Omit<CanvasImage, 'x' | 'y'>) => {
+      const patch = { status, height: loaded ? 92 * loaded.image.naturalHeight / loaded.image.naturalWidth : 92 * 4 / 3 };
       const archived = archivedRecords.current.get(target.record.id);
-      if (archived) archivedRecords.current.set(target.record.id, { ...archived, images: archived.images.map(image => image.id === result.id ? { ...image, status } : image) });
+      if (archived) archivedRecords.current.set(target.record.id, { ...archived, images: archived.images.map(image => image.id === result.id ? { ...image, ...patch } : image) });
       setGenerationRecords(previous => previous.map(item => item.id === target.record.id
-        ? { ...item, images: item.images.map(image => image.id === result.id ? { ...image, status } : image) }
+        ? { ...item, images: item.images.map(image => image.id === result.id ? { ...image, ...patch } : image) }
         : item));
     };
     updateStatus('generating');
@@ -278,7 +279,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
       const [loaded] = await Promise.all([prepareMainImage({ id: result.id, url: result.url, name: `${t(record.title)} ${index + 1}` }), delay]);
       if (generationMounted.current) {
         board.finishGeneration([placeholder.id], [loaded]);
-        updateStatus('success');
+        updateStatus('success', loaded);
       }
       return loaded;
     } catch (error) {
@@ -301,12 +302,11 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     const source = board.images.find(image => image.id === record.sourceId);
     const id = crypto.randomUUID();
     const count = record.count ?? Math.max(1, record.images.length);
-    const ratio = record.resultRatio ?? (record.ratio && record.ratio !== 'auto' ? record.ratio : `92:${record.images[0]?.height ?? record.resultHeight ?? 92}`);
-    const placeholders = board.beginGeneration(source?.id ?? record.sourceId, count, ratio, { name: record.title, taskRecordId: id });
+    const placeholders = board.beginGeneration(source?.id ?? record.sourceId, count, { name: record.title, taskRecordId: id });
     if (!placeholders.length) return;
     const now = new Date();
     const time = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    setGenerationRecords(previous => [{ ...record, id, sourceId: source?.id ?? record.sourceId, time, generating: true, pending: false, failed: false, count, resultRatio: ratio, resultHeight: 92 * placeholders[0].height / placeholders[0].width, images: placeholders.map(item => ({ id: item.id, url: item.url, height: 92 * item.height / item.width, status: 'generating' })), tags: record.tags.map(tag => ({ ...tag })) }, ...previous]);
+    setGenerationRecords(previous => [{ ...record, id, sourceId: source?.id ?? record.sourceId, time, generating: true, pending: false, failed: false, count, resultHeight: 92 * placeholders[0].height / placeholders[0].width, images: placeholders.map(item => ({ id: item.id, url: item.url, height: 92 * item.height / item.width, status: 'generating' })), tags: record.tags.map(tag => ({ ...tag })) }, ...previous]);
     const delay = new Promise<void>(resolve => {
       const timer = setTimeout(() => { generationTimers.current.delete(timer); resolve(); }, 3000);
       generationTimers.current.add(timer);
@@ -336,7 +336,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
           if (!generationMounted.current) return;
           const loaded = assets[0];
           board.finishGeneration([tile.id], [loaded], true);
-          const complete = (item: GenerationRecord) => ({ ...item, generating: false, images: item.images.map(image => image.id === result.id ? { ...image, url: loaded.url, status: 'success' as const } : image) });
+          const complete = (item: GenerationRecord) => ({ ...item, generating: false, images: item.images.map(image => image.id === result.id ? { ...image, url: loaded.url, height: 92 * loaded.image.naturalHeight / loaded.image.naturalWidth, status: 'success' as const } : image) });
           setGenerationRecords(previous => previous.map(item => item.id === record.id ? complete(item) : item));
           const archived = archivedRecords.current.get(record.id);
           if (archived) archivedRecords.current.set(record.id, complete(archived));
