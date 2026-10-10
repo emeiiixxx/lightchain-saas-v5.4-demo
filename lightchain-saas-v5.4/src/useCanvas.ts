@@ -118,7 +118,7 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     canvasRef.current?.toggleAttribute('data-movable', movable);
   }, []);
   useEffect(updateMoveCursor, [images, camera, mode, locked, panning, spacePressed, updateMoveCursor]);
-  const animatePlacement = useCallback((next: CanvasImage[]) => {
+  const animatePlacement = useCallback((next: CanvasImage[], onComplete?: () => void) => {
     finishPlacement();
     const previous = new Map(live.current.images.map(image => [image.id, image]));
     const moving = new Map(next.flatMap(image => {
@@ -126,7 +126,7 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
       return from && (from.x !== image.x || from.y !== image.y) ? [[image.id, { from, to: image }] as const] : [];
     }));
     if (!moving.size || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      live.current.images = next; setImages(next); return;
+      live.current.images = next; setImages(next); onComplete?.(); return;
     }
     const initial = next.map(image => {
       const pair = moving.get(image.id);
@@ -153,7 +153,7 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
       const progress = Math.min(1, (now - started) / MOTION_DURATION);
       apply(progress);
       if (progress < 1) frame = requestAnimationFrame(tick);
-      else placementAnimation.current = null;
+      else { placementAnimation.current = null; onComplete?.(); }
     };
     frame = requestAnimationFrame(tick);
   }, [finishPlacement]);
@@ -419,6 +419,7 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
   const arrange = useCallback((layout: CanvasLayout = 'compact', scope: 'canvas' | 'selection' = 'canvas') => {
     if (lock.current) return;
     finishPlacement();
+    focusAnimation.current?.();
     const state = live.current;
     const selectedIds = new Set(expandGroups(state.images, state.selectedIds));
     const targets = scope === 'selection' ? state.images.filter(item => selectedIds.has(item.id)) : state.images;
@@ -434,7 +435,7 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     // Both new and legacy items follow the current top-to-bottom layer order.
     const itemsByUnit = orderArrangementUnits([...units.values()], state.images);
     if (itemsByUnit.length === 1) {
-      if (scope === 'canvas') fit();
+      if (scope === 'canvas') fit({ animate: true });
       return;
     }
     const boxes = itemsByUnit.map(selectionBounds);
@@ -453,10 +454,11 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
       const offset = offsets.get(item.id);
       return offset ? { ...item, x: item.x + offset.x, y: item.y + offset.y } : item;
     });
-    remember(state.images); live.current.images = next; setImages(next);
+    remember(state.images);
+    // Show the movement in the current view before fitting the arranged canvas.
     // Local arrangement keeps the current viewport and the unselected canvas in place.
-    if (scope === 'canvas') fit();
-  }, [remember, fit, arrangementViewport, finishPlacement]);
+    animatePlacement(next, scope === 'canvas' ? () => fit({ animate: true }) : undefined);
+  }, [remember, fit, arrangementViewport, finishPlacement, animatePlacement]);
 
   const addImages = useCallback((items: Omit<CanvasImage, 'x' | 'y'>[]) => {
     if (lock.current) return;
