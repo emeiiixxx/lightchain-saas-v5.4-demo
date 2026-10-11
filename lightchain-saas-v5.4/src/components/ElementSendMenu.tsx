@@ -32,7 +32,8 @@ export function ElementSendMenu({ open, onToggle, onClose, onSend, withLabel = f
     const position = () => {
       const rect = trigger.current?.getBoundingClientRect(); if (!rect) return;
       const left = `${Math.max(16, Math.min(rect.left, window.innerWidth - element.offsetWidth - 16))}px`;
-      const top = `${Math.max(16, Math.min(rect.bottom + 8, window.innerHeight - element.offsetHeight - 16))}px`;
+      const below = rect.bottom + 8;
+      const top = `${Math.max(16, below + element.offsetHeight <= window.innerHeight - 16 ? below : rect.top - element.offsetHeight - 8)}px`;
       if (element.style.left !== left) element.style.left = left;
       if (element.style.top !== top) element.style.top = top;
       frame = requestAnimationFrame(position);
