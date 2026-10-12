@@ -54,7 +54,7 @@ export function TaskDetailPanel({ record, selectedIndex, active, onSelect, onLib
     <div className="task-detail-info">
       <header><div className="task-detail-heading-text"><h2>{t(record.title)}</h2><time>{record.time}</time></div>{record.replayable && <Button className="task-detail-regenerate" variant="outline" size="s" disabled={disabled || record.generating || record.pending} onClick={onRegenerate}><Icon name="task-record-regenerate-small" size={16} />{t('再次生成')}</Button>}</header>
       <nav className="task-detail-thumbnails" aria-label={t('图片缩略图')}>
-        {record.images.map((image, index) => <button type="button" key={`${image.url}-${index}`} aria-label={`${t('查看大图')} · ${index + 1}`} disabled={image.status === 'failed' || image.status === 'generating'} aria-current={index === selectedIndex ? 'true' : undefined} onClick={() => onSelect(index)} onKeyDown={event => {
+        {record.images.map((image, index) => <button type="button" key={`${image.url}-${index}`} style={image.status === 'failed' || image.status === 'generating' ? { aspectRatio: `92 / ${image.height}` } : undefined} aria-label={`${t('查看大图')} · ${index + 1}`} disabled={image.status === 'failed' || image.status === 'generating'} aria-current={index === selectedIndex ? 'true' : undefined} onClick={() => onSelect(index)} onKeyDown={event => {
           if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
           event.preventDefault(); event.stopPropagation();
           const step = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : event.key === 'ArrowUp' ? -4 : 4;
@@ -64,7 +64,7 @@ export function TaskDetailPanel({ record, selectedIndex, active, onSelect, onLib
             : step > 0 ? available.find(i => i >= target) : [...available].reverse().find(i => i <= target);
           if (next === undefined) return;
           onSelect(next); event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('button')[next]?.focus();
-        }}>{image.status === 'failed' || image.status === 'generating' ? <TaskResultPlaceholder status={image.status} /> : <ProgressiveImage src={image.url} alt="" eager fit="cover" />}</button>)}
+        }}>{image.status === 'failed' || image.status === 'generating' ? <TaskResultPlaceholder status={image.status} /> : <ProgressiveImage src={image.url} alt="" eager fit="contain" />}</button>)}
       </nav>
       <GenerationRecordTags record={record} active={active && !disabled} disabled={disabled} />
       {recordHasPrompt(record) && <div className="generation-record-prompt task-detail-prompt">
