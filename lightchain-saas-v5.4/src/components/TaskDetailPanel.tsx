@@ -13,6 +13,7 @@ import { GenerationRecordTags } from './GenerationRecordTags';
 import { recordHasPrompt } from '../generation-record-display';
 import { ElementSendMenu } from './ElementSendMenu';
 import { TaskRecordMoreMenu } from './TaskRecordMoreMenu';
+import { useRecordResultRatio } from '../useRecordResultRatio';
 
 type Props = {
   record: GenerationRecord; selectedIndex: number; active: boolean;
@@ -23,6 +24,7 @@ type Props = {
 };
 export function TaskDetailPanel({ record, selectedIndex, active, onSelect, onLibrary, onSave, onCopy, onNotify, onRegenerate, onDeleteImage }: Props) {
   const { t, locale } = useLocale();
+  const aspectRatio = useRecordResultRatio(record);
   const [sendOpen, setSendOpen] = useState(false);
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -54,7 +56,7 @@ export function TaskDetailPanel({ record, selectedIndex, active, onSelect, onLib
     <div className="task-detail-info">
       <header><div className="task-detail-heading-text"><h2>{t(record.title)}</h2><time>{record.time}</time></div>{record.replayable && <Button className="task-detail-regenerate" variant="outline" size="s" disabled={disabled || record.generating || record.pending} onClick={onRegenerate}><Icon name="task-record-regenerate-small" size={16} />{t('再次生成')}</Button>}</header>
       <nav className="task-detail-thumbnails" aria-label={t('图片缩略图')}>
-        {record.images.map((image, index) => <button type="button" key={`${image.url}-${index}`} style={image.status === 'failed' || image.status === 'generating' ? { aspectRatio: `92 / ${image.height}` } : undefined} aria-label={`${t('查看大图')} · ${index + 1}`} disabled={image.status === 'failed' || image.status === 'generating'} aria-current={index === selectedIndex ? 'true' : undefined} onClick={() => onSelect(index)} onKeyDown={event => {
+        {record.images.map((image, index) => <button type="button" key={`${image.url}-${index}`} style={{ aspectRatio }} aria-label={`${t('查看大图')} · ${index + 1}`} disabled={image.status === 'failed' || image.status === 'generating'} aria-current={index === selectedIndex ? 'true' : undefined} onClick={() => onSelect(index)} onKeyDown={event => {
           if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
           event.preventDefault(); event.stopPropagation();
           const step = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : event.key === 'ArrowUp' ? -4 : 4;

@@ -19,6 +19,7 @@ import { useSavedPrompts } from '../useSavedPrompts';
 import { TaskRecordMoreMenu } from './TaskRecordMoreMenu';
 import { downloadRecordGroup } from '../download-record-group';
 import type { DownloadFormat } from '../download-image';
+import { useRecordResultRatio } from '../useRecordResultRatio';
 
 export type LeftPanelTab = 'layers' | 'assets' | 'history';
 export type GenerationRecord = {
@@ -30,6 +31,19 @@ export type GenerationRecord = {
   resultHeight?: number;
   images: { id?: string; url: string; height: number; status?: 'failed' | 'generating' | 'success' }[];
 };
+
+function RecordResults({ record, eager, onOpen }: { record: GenerationRecord; eager: boolean; onOpen: (index: number) => void }) {
+  const { t } = useLocale();
+  const aspectRatio = useRecordResultRatio(record);
+  const count = record.images.length || record.count || 1;
+  return <div className={`generation-record-images ${count >= 4 ? 'generation-record-images--four' : ''}`}>
+    {record.images.length ? record.images.map((item, index) => <div className="generation-record-result" key={item.id ?? `${item.url}-${index}`} style={{ aspectRatio }}>
+      {item.status === 'failed' || item.status === 'generating'
+        ? <TaskResultPlaceholder status={item.status} />
+        : <button className="generation-record-result-open" type="button" aria-label={`${t('查看大图')} · ${t(record.title)} ${index + 1}`} onClick={() => onOpen(index)}><ProgressiveImage src={item.url} alt="" eager={eager} fit="contain" /></button>}
+    </div>) : Array.from({ length: count }, (_, index) => <div className="generation-record-loading" key={index} style={{ aspectRatio }}><GeneratingPlaceholder style={{ inset: 0 }} /></div>)}
+  </div>;
+}
 // Preserve each Figma source image's actual format. New URLs also reset failed image requests.
 const jpegAssets = new Set(['imgImageAsset1', 'imgAsset4', 'imgAsset5', 'imgAsset6']);
 const asset = (name: string) => `/assets/generation-record-${name}.${jpegAssets.has(name) ? 'jpg' : 'png'}`;
@@ -202,17 +216,9 @@ export function CanvasLeftPanel({ tab, hasSelectedElement, onTabChange, onClose,
                 </div>
               </div>}
             </div>
-            {record.generating && !record.images.length && <div className={`generation-record-images ${(record.count ?? 1) >= 4 ? 'generation-record-images--four' : ''}`}>
-              {Array.from({ length: record.count ?? 1 }, (_, resultIndex) => <div className="generation-record-loading" key={resultIndex} style={{ height: record.resultHeight ?? 92 }}><GeneratingPlaceholder style={{ inset: 0 }} /></div>)}
-            </div>}
+            {record.generating && !record.images.length && <RecordResults record={record} eager={index === 0} onOpen={() => {}} />}
             {!record.generating && !record.pending && !record.failed && !record.images.length && <p className="text-xs text-muted">{t('暂无结果图片')}</p>}
-            {!!record.images.length && <div className={`generation-record-images ${record.images.length >= 4 ? 'generation-record-images--four' : ''}`}>
-              {record.images.map((item, imageIndex) => <div className="generation-record-result" key={item.id ?? `${item.url}-${imageIndex}`} style={{ height: item.height }}>
-                {item.status === 'failed' || item.status === 'generating'
-                  ? <TaskResultPlaceholder status={item.status} />
-                  : <button className="generation-record-result-open" type="button" aria-label={`${t('查看大图')} · ${t(record.title)} ${imageIndex + 1}`} onClick={() => void openImage(record, imageIndex)}><ProgressiveImage src={item.url} alt="" eager={index === 0} /></button>}
-              </div>)}
-            </div>}
+            {!!record.images.length && <RecordResults record={record} eager={index === 0} onOpen={imageIndex => void openImage(record, imageIndex)} />}
           </article>)}
         </div>}
       </div>
