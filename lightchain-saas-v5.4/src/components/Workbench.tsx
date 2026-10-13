@@ -19,10 +19,11 @@ import { ImageContextMenu } from './ImageContextMenu';
 import { ShortcutsPanel } from './ShortcutsPanel';
 import { QuickEditComposer, createQuickEditDraft, type QuickEditDraft, type CanvasEditTool } from './QuickEditComposer';
 import { StrokeColorPicker } from './StrokeColorPicker';
-import { initialDemoRecords, CanvasLeftPanel, type LeftPanelTab, type GenerationRecord } from './CanvasLeftPanel';
+import { CanvasLeftPanel, type LeftPanelTab, type GenerationRecord } from './CanvasLeftPanel';
 import { type CanvasImage, useCanvas } from '../useCanvas';
 import { TaskResultPlaceholder } from './TaskResultPlaceholder';
 import { GeneratingPlaceholder } from './GeneratingPlaceholder';
+import { initialDemoRecords, PROMO_TASK_SEED_VERSION, restoreTaskExamples } from '../promo-task-records';
 import { prepareDemoResults } from '../demo-generation';
 import { MultiSelectionControls } from './MultiSelectionControls';
 import { CanvasArrangeMenu } from './CanvasArrangeMenu';
@@ -137,14 +138,14 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
   const resumedResults = useRef(new Set<string>());
   useEffect(() => {
     let active = true;
-    void restoreDemoUrls(readDemoState<{ records: GenerationRecord[]; archived: [string, GenerationRecord][] } | null>('tasks', null)).then(saved => {
+    void restoreDemoUrls(readDemoState<{ records: GenerationRecord[]; archived: [string, GenerationRecord][]; seedVersion?: string } | null>('tasks', null)).then(saved => {
       if (!active) return;
-      if (saved) { setGenerationRecords(saved.records); archivedRecords.current = new Map(saved.archived); }
+      if (saved) { setGenerationRecords(restoreTaskExamples(saved.records, saved.seedVersion)); archivedRecords.current = new Map(saved.archived); }
       setRecordsRestored(true);
     }).catch(() => { if (active) setRecordsRestored(true); });
     return () => { active = false; };
   }, []);
-  useEffect(() => { if (recordsRestored) writeDemoState('tasks', { records: generationRecords, archived: [...archivedRecords.current] }); }, [generationRecords, recordsRestored]);
+  useEffect(() => { if (recordsRestored) writeDemoState('tasks', { seedVersion: PROMO_TASK_SEED_VERSION, records: generationRecords, archived: [...archivedRecords.current] }); }, [generationRecords, recordsRestored]);
   const openLeftPanel = (value: LeftPanelTab) => { setLeftTab(value); if (value === 'assets' || board.selectedIds.length > 0) onNotify(demoNotice(locale)); };
   // Demo submissions stand in for new generation records until generation is connected.
   const recordGenerationRequest = (request: string, title = "AI助手") => {
@@ -323,7 +324,14 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
       generationTimers.current.add(timer);
     });
     try {
-      const [assets] = await Promise.all([prepareDemoResults({ ratio: record.ratio, resolution: record.resolution, sourceSize: source ? { width: source.image.naturalWidth, height: source.image.naturalHeight } : sourceSize ?? placeholders[0], count }), delay]);
+      const outputUrls = record.demoOutputUrls;
+      const outputRequest = outputUrls?.length
+        ? Promise.all(Array.from({ length: count }, (_, index) => {
+          const url = outputUrls[index % outputUrls.length];
+          return prepareMainImage({ id: url, url, name: record.title });
+        }))
+        : prepareDemoResults({ ratio: record.ratio, resolution: record.resolution, sourceSize: source ? { width: source.image.naturalWidth, height: source.image.naturalHeight } : sourceSize ?? placeholders[0], count });
+      const [assets] = await Promise.all([outputRequest, delay]);
       if (!generationMounted.current) return;
       const results = Array.from({ length: count }, (_, index) => assets[index % assets.length]);
       finishDemoBatch(id, placeholders, results);
@@ -343,7 +351,9 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
         // Only recover placeholders loaded from storage, not currently running submissions.
         if (generationTimers.current.size || retryingResults.current.size || generatingSources.current.size) continue;
         resumedResults.current.add(key);
-        void prepareDemoResults({ ratio: record.ratio, resolution: record.resolution, sourceSize: tile, count: 1 }).then(assets => {
+        const demoUrl = record.demoOutputUrls?.[record.images.indexOf(result) % record.demoOutputUrls.length];
+        const recoveredAssets = demoUrl ? prepareMainImage({ id: demoUrl, url: demoUrl, name: record.title }).then(asset => [asset]) : prepareDemoResults({ ratio: record.ratio, resolution: record.resolution, sourceSize: tile, count: 1 });
+        void recoveredAssets.then(assets => {
           if (!generationMounted.current) return;
           const loaded = assets[0];
           board.finishGeneration([tile.id], [loaded], true);

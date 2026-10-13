@@ -23,6 +23,8 @@ import { useRecordResultRatio } from '../useRecordResultRatio';
 
 export type LeftPanelTab = 'layers' | 'assets' | 'history';
 export type GenerationRecord = {
+  /** Local showcase outputs used when replaying a simulated feature. */
+  demoOutputUrls?: string[];
   supportsPrompt?: boolean; printMode?: 'position' | 'repeat';
   sourceId?: string; replayable?: boolean; resultRatio?: string;
   id: string; title: string; time: string; prompt?: string; pending?: boolean; generating?: boolean; failed?: boolean; ratio?: string; resolution?: string;
@@ -44,63 +46,6 @@ function RecordResults({ record, eager, onOpen }: { record: GenerationRecord; ea
     </div>) : Array.from({ length: count }, (_, index) => <div className="generation-record-loading" key={index} style={{ aspectRatio }}><GeneratingPlaceholder style={{ inset: 0 }} /></div>)}
   </div>;
 }
-// Preserve each Figma source image's actual format. New URLs also reset failed image requests.
-const jpegAssets = new Set(['imgImageAsset1', 'imgAsset4', 'imgAsset5', 'imgAsset6']);
-const asset = (name: string) => `/assets/generation-record-${name}.${jpegAssets.has(name) ? 'jpg' : 'png'}`;
-const demoRecords: GenerationRecord[] = [
-  { id: 'figma-variation', title: '款式 - 款式裂变', time: '2026-09-22 09:29', count: 8,
-    tags: [{ label: '服装图', image: asset('imgImageAsset') }, ...['连衣裙', '深V领', '前中系带', '短款长度', '飘逸垂坠', '发散程度：中'].map(label => ({ label }))],
-    images: ['imgAsset', 'imgAsset1', 'imgAsset2', 'imgAsset3', 'imgAsset4', 'imgAsset5', 'imgAsset6', 'imgImageAsset'].map(name => ({ url: asset(name), height: 120 })),
-  },
-  { id: 'figma-fabric', title: '款式 - 局部修改', time: '2026-09-22 09:29', count: 1,
-    tags: [{ label: '服装图', image: asset('imgImageAsset1') }, { label: '参考图', image: asset('imgImageAsset2') }],
-    prompt: '参考图2面料的颜色与质感，让图1的服装面料变成图2的质感与颜色，款式可以适当微调，比如领口可以更加V，袖口可以加长，保持灯笼袖，开口',
-    images: [{ url: asset('imgAsset4'), height: 164 }],
-  },
-  { id: 'figma-colors', title: '款式 - 局部修改', time: '2026-09-22 09:29', count: 2,
-    tags: [{ label: '服装图', image: asset('imgImageAsset1') }],
-    prompt: '帮我换两个颜色看看，紫色，小碎花',
-    images: ['imgAsset5', 'imgAsset6'].map(name => ({ url: asset(name), height: 92 })),
-  },
-  { id: 'figma-color-all', title: '颜色修改', time: '2026-09-22 09:29', count: 2, supportsPrompt: false,
-    tags: [{ label: '服装图', image: '/assets/color-change-source.png' }, { label: '#BB9CAC', color: '#BB9CAC' }, { label: '改色区域：全部' }],
-    images: [{ url: '/assets/color-change-result.png', height: 92 }],
-  },
-  { id: 'figma-color-custom', title: '颜色修改', time: '2026-09-22 09:29', count: 2, supportsPrompt: false,
-    tags: [{ label: '服装图', image: '/assets/color-change-source.png' }, { label: '#BB9CAC', color: '#BB9CAC' }, { label: '改色区域：自定义' }],
-    images: [{ url: '/assets/color-change-result.png', height: 92 }],
-  },
-];
-// Seven additional demo entries reuse the available design assets and prompt examples.
-const additionalDemoRecords: GenerationRecord[] = [4, 2, 1, 8, 4, 1, 2].map((count, index) => {
-  const source = demoRecords[count >= 4 ? 0 : count === 1 ? 1 : 2];
-  return {
-    ...source,
-    id: `demo-record-${index + 4}`,
-    time: `2026-09-22 09:${String(26 - index * 3).padStart(2, '0')}`,
-    count,
-    images: source.images.slice(0, count),
-    prompt: index === 2 ? [
-      '参考图2的颜色与质感，将图1的服装面料替换成细腻的蓝色条纹面料。',
-      '保留原有连衣裙轮廓、收腰比例和裙摆长度，让面料自然贴合身体。',
-      '领口改成稍深的V领，保留翻领结构，避免露出过多。',
-      '袖口适当加长，保持灯笼袖的蓬松感，褶皱要自然。',
-      '腰带使用同款条纹面料，系结位置与原图一致。',
-      '保留人物的面部、发型、姿势和背景，只调整服装部分。',
-      '整体光影与原图保持一致，清晰呈现面料纹理和缝线细节。',
-    ].join('\n') : source.prompt,
-  };
-});
-const failedDemoRecord: GenerationRecord = {
-  ...demoRecords[0],
-  id: 'demo-partial-failure', time: '2026-09-22 09:29', count: 4, resultRatio: '92:120',
-  images: ['imgAsset', 'imgAsset1', 'imgAsset2', 'imgAsset3'].map((name, index) => ({
-    id: `demo-partial-result-${index}`, url: asset(name), height: 120,
-    status: index === 2 ? 'failed' : 'success',
-  })),
-};
-export const initialDemoRecords: GenerationRecord[] = [failedDemoRecord, ...demoRecords, ...additionalDemoRecords].map(record => ({ ...record, replayable: true, images: record.images.map((image, index) => ({ ...image, id: image.id ?? `${record.id}-result-${index}` })) }));
-
 const tabs = [
   { value: 'layers', label: '图层', en: 'Layers', ja: 'レイヤー', icon: 'generation-record-imgDefaultIcon' },
   { value: 'assets', label: '资产', en: 'Assets', ja: '素材', icon: 'generation-record-imgDefaultIcon1' },
