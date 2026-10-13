@@ -1,7 +1,7 @@
 import type { GenerationRecord } from './components/CanvasLeftPanel';
 
 // Prepared showcase data; these results are generated assets, not live AI calls.
-export const PROMO_TASK_SEED_VERSION = '2026-10-13-kol-2';
+export const PROMO_TASK_SEED_VERSION = '2026-10-13-kol-3';
 const asset = (name: string) => `/assets/promo-tasks/${name}.${name === 'kol-cutout' ? 'png' : 'jpg'}`;
 const input = (label: string, name: string) => ({ label, image: asset(name) });
 const tags = (...labels: string[]) => labels.map(label => ({ label }));
@@ -93,7 +93,7 @@ const examples: Example[] = [
     key: 'crop', title: '智能裁图', inputs: [input('原图', 'kol-coast')], outputs: ['kol-crop'], ratio: '1:1',
   },
   {
-    key: 'outpaint', title: 'AI扩图', inputs: [input('原图', 'kol-coast')], outputs: ['kol-outpaint'], ratio: '3:2', resolution: '2K', parameters: tags('扩图倍数：2.25'),
+    key: 'outpaint', title: 'AI扩图', inputs: [input('原图', 'kol-coast')], outputs: ['kol-outpaint'], resolution: '2K', parameters: tags('扩图倍数：自定义'),
   },
   {
     key: 'erase', title: 'AI消除', inputs: [input('原图', 'mask-bag')], outputs: ['kol-erase'],
@@ -122,9 +122,14 @@ const legacySeedIds = new Set([
 /** Upgrade fixtures once without clearing user-created tasks, canvas data or archives. */
 export function restoreTaskExamples(records: GenerationRecord[], seedVersion?: string): GenerationRecord[] {
   if (seedVersion === PROMO_TASK_SEED_VERSION) return records;
-  if (seedVersion === '2026-10-13-kol-1') {
+  if (seedVersion === '2026-10-13-kol-1' || seedVersion === '2026-10-13-kol-2') {
     const multiView = initialDemoRecords.find(record => record.id === 'promo-task-multi-view')!;
-    return records.map(record => record.id === multiView.id ? { ...record, tags: multiView.tags } : record);
+    const outpaint = initialDemoRecords.find(record => record.id === 'promo-task-outpaint')!;
+    return records.map(record => {
+      if (record.id === outpaint.id) return { ...record, tags: outpaint.tags, ratio: undefined };
+      if (seedVersion === '2026-10-13-kol-1' && record.id === multiView.id) return { ...record, tags: multiView.tags };
+      return record;
+    });
   }
   const newSeedIds = new Set(initialDemoRecords.map(record => record.id));
   return [...initialDemoRecords, ...records.filter(record => !legacySeedIds.has(record.id) && !newSeedIds.has(record.id))];
