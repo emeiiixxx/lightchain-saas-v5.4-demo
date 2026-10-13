@@ -624,7 +624,9 @@ export function useCanvas(notify: Notify, theme: 'dark' | 'light', locale = 'zh-
     const canvas = canvasRef.current!, stage = canvas.parentElement!;
     const local = (e: { clientX: number; clientY: number }) => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
     const wheel = (e: WheelEvent) => {
-      if (e.target instanceof HTMLElement && e.target.closest('[data-canvas-ui]')) return;
+      // This capture listener runs before nested editors: modal wheels belong to the dialog.
+      if (document.querySelector('dialog[open]')) return;
+      if (e.target instanceof Element && e.target.closest('[data-canvas-ui]')) return;
       e.preventDefault(); if (lock.current) return; const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? live.current.size.height : 1;
       focusAnimation.current?.();
       if (e.ctrlKey || e.metaKey || e.altKey) zoomAt(live.current.camera.zoom * Math.exp(-e.deltaY * unit * .006), local(e));
