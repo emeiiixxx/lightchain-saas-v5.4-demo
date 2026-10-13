@@ -44,7 +44,10 @@
 .text-edit-handle--s { left: 50%; top: 100%; cursor: ns-resize; }
 .text-edit-handle--se { left: 100%; top: 100%; cursor: nwse-resize; }
 .text-edit-hint { position: absolute; z-index: 2; top: 24px; left: 50%; translate: -50% 0; padding: 8px 16px; margin: 0; border: 1px solid var(--border-weak); border-radius: 8px; background: var(--overlay-toast); color: var(--text-on-brand-white); backdrop-filter: blur(10px); font-size: 14px; line-height: 20px; white-space: nowrap; pointer-events: none; }
-.text-edit-guide-trigger { position: absolute; z-index: 3; right: 16px; top: 16px; }
+/* Figma 420:6102: outlined control with an opaque, theme-aware fill. */
+.lc-button.text-edit-guide-trigger { position: absolute; z-index: 3; right: 16px; top: 16px; padding-inline: 12px; background: var(--control-fill-default); }
+.lc-button.text-edit-guide-trigger:hover:not(:disabled) { background: var(--control-fill-hover); }
+.lc-button.text-edit-guide-trigger:active:not(:disabled) { background: var(--control-fill-hover); box-shadow: inset 0 0 0 999px var(--state-selected); }
 .text-edit-zoom { position: absolute; z-index: 2; left: 50%; bottom: 24px; translate: -50% 0; display: flex; align-items: center; padding: 4px; background: var(--surface-default); border: 1px solid var(--border-weak); border-radius: 8px; box-shadow: var(--shadow-l); cursor: default; }
 .text-edit-zoom > span:not(.divider) { min-width: 56px; text-align: center; font-size: 14px; }
 .text-edit-zoom > .divider { height: 24px; }
