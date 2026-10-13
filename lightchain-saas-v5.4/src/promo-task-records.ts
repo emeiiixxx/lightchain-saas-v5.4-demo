@@ -1,7 +1,7 @@
 import type { GenerationRecord } from './components/CanvasLeftPanel';
 
 // Prepared showcase data; these results are generated assets, not live AI calls.
-export const PROMO_TASK_SEED_VERSION = '2026-10-13-kol-3';
+export const PROMO_TASK_SEED_VERSION = '2026-10-13-kol-4';
 const asset = (name: string) => `/assets/promo-tasks/${name}.${name === 'kol-cutout' ? 'png' : 'jpg'}`;
 const input = (label: string, name: string) => ({ label, image: asset(name) });
 const tags = (...labels: string[]) => labels.map(label => ({ label }));
@@ -100,7 +100,7 @@ const examples: Example[] = [
   },
 ];
 
-export const initialDemoRecords: GenerationRecord[] = examples.map((example, index) => {
+const showcaseRecords: GenerationRecord[] = examples.map((example, index) => {
   const id = `promo-task-${example.key}`;
   const urls = example.outputs.map(asset);
   const square = example.outputs[0].startsWith('print-') || example.outputs[0].startsWith('fabric-') || example.outputs[0] === 'kol-crop';
@@ -115,22 +115,35 @@ export const initialDemoRecords: GenerationRecord[] = examples.map((example, ind
   };
 });
 
-const legacySeedIds = new Set([
-  'figma-variation', 'figma-fabric', 'figma-colors', 'figma-color-all', 'figma-color-custom',
-  'demo-partial-failure', ...Array.from({ length: 7 }, (_, index) => `demo-record-${index + 4}`),
-]);
-/** Upgrade fixtures once without clearing user-created tasks, canvas data or archives. */
+const variationExample = showcaseRecords.find(record => record.id === 'promo-task-variations')!;
+const failureExample: GenerationRecord = {
+  ...variationExample,
+  id: 'promo-task-partial-failure',
+  time: '2026-10-13 10:08',
+  images: variationExample.images.map((image, index) => ({
+    ...image,
+    id: `promo-task-partial-failure-result-${index}`,
+    status: index === 3 ? 'failed' : 'success',
+  })),
+};
+export const initialDemoRecords: GenerationRecord[] = [...showcaseRecords, failureExample];
+
+/** One-time requested cleanup: keep the new showcase and one old failed task. */
 export function restoreTaskExamples(records: GenerationRecord[], seedVersion?: string): GenerationRecord[] {
   if (seedVersion === PROMO_TASK_SEED_VERSION) return records;
-  if (seedVersion === '2026-10-13-kol-1' || seedVersion === '2026-10-13-kol-2') {
-    const multiView = initialDemoRecords.find(record => record.id === 'promo-task-multi-view')!;
-    const outpaint = initialDemoRecords.find(record => record.id === 'promo-task-outpaint')!;
-    return records.map(record => {
-      if (record.id === outpaint.id) return { ...record, tags: outpaint.tags, ratio: undefined };
-      if (seedVersion === '2026-10-13-kol-1' && record.id === multiView.id) return { ...record, tags: multiView.tags };
-      return record;
-    });
-  }
-  const newSeedIds = new Set(initialDemoRecords.map(record => record.id));
-  return [...initialDemoRecords, ...records.filter(record => !legacySeedIds.has(record.id) && !newSeedIds.has(record.id))];
+  const showcaseIds = new Set(showcaseRecords.map(record => record.id));
+  const retainedFailure = records.find(record =>
+    !showcaseIds.has(record.id) && record.images.some(image => image.status === 'failed')
+  ) ?? failureExample;
+  // Keep intentional deletions of showcase examples when upgrading an existing set.
+  const retainedShowcase = seedVersion?.startsWith('2026-10-13-kol-')
+    ? records.filter(record => showcaseIds.has(record.id))
+    : showcaseRecords;
+  const multiView = showcaseRecords.find(record => record.id === 'promo-task-multi-view')!;
+  const outpaint = showcaseRecords.find(record => record.id === 'promo-task-outpaint')!;
+  return [...retainedShowcase.map(record => {
+    if (record.id === outpaint.id) return { ...record, tags: outpaint.tags, ratio: undefined };
+    if (record.id === multiView.id) return { ...record, tags: multiView.tags };
+    return record;
+  }), retainedFailure];
 }

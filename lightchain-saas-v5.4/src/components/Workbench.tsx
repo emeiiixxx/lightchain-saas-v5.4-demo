@@ -140,7 +140,17 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     let active = true;
     void restoreDemoUrls(readDemoState<{ records: GenerationRecord[]; archived: [string, GenerationRecord][]; seedVersion?: string } | null>('tasks', null)).then(saved => {
       if (!active) return;
-      if (saved) { setGenerationRecords(restoreTaskExamples(saved.records, saved.seedVersion)); archivedRecords.current = new Map(saved.archived); }
+      if (saved) {
+        const records = restoreTaskExamples(saved.records, saved.seedVersion);
+        const retainedIds = new Set(records.map(record => record.id));
+        archivedRecords.current = new Map(saved.archived);
+        for (const record of saved.records) {
+          if (!retainedIds.has(record.id) && !archivedRecords.current.has(record.id)) {
+            archivedRecords.current.set(record.id, record);
+          }
+        }
+        setGenerationRecords(records);
+      }
       setRecordsRestored(true);
     }).catch(() => { if (active) setRecordsRestored(true); });
     return () => { active = false; };
