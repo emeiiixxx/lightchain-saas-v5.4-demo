@@ -41,7 +41,8 @@
 .text-edit-zoom > span:not(.divider) { min-width: 56px; text-align: center; font-size: 14px; }
 .text-edit-zoom > .divider { height: 24px; }
 .text-edit-guide { position: absolute; inset: 80px 24px 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; overflow-y: auto; cursor: default; }
-.text-edit-guide-card { width: min(960px, 100%); padding: 24px; border-radius: 16px; border: 1px solid var(--border-weak); background: var(--surface-floating); box-shadow: var(--shadow-l); }
+/* Reserve the same card height on every step; keep pagination outside its scroll area. */
+.text-edit-guide-card { width: min(960px, 100%); height: 600px; max-height: calc(100% - 56px); min-height: 0; flex: none; padding: 24px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; border-radius: 16px; border: 1px solid var(--border-weak); background: var(--surface-floating); box-shadow: var(--shadow-l); }
 .text-edit-guide-card > h3 { margin: 0 0 24px; font-size: 20px; line-height: 28px; font-weight: 700; }
 .text-edit-guide-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .text-edit-guide-example { min-width: 0; display: flex; flex-direction: column; gap: 12px; }

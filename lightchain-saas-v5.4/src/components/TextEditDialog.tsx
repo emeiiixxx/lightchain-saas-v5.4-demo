@@ -213,8 +213,8 @@ export function TextEditDialog({ source, phase, onClose, onSubmit }: {
         </div>}
         {(!guideOpen || firstGuide) && <p className="text-edit-hint">{t(firstGuide ? '💡当前为操作指引，完成后即可开始编辑' : '💡拖动鼠标框选需要调整的文字区域')}</p>}
         {!firstGuide && <Button className="text-edit-guide-trigger" variant="outline" icon="text-edit/guide" onClick={() => { setGuideOpen(!guideOpen); setGuideIndex(0); }}>{t(guideOpen ? '关闭示例' : '查看操作示例')}</Button>}
-        {guideOpen ? <div className="text-edit-guide" key={guideIndex} data-phase="enter">
-          <div className="text-edit-guide-card">
+        {guideOpen ? <div className="text-edit-guide" data-phase="enter">
+          <div className="text-edit-guide-card" key={guideIndex} data-phase="enter">
             <h3>{t(guide.title)}</h3>
             <div className="text-edit-guide-columns">{(['wrong', 'correct'] as const).map(kind => <div className="text-edit-guide-example" key={kind}>
               <div className="text-edit-guide-media"><span className={`text-edit-guide-badge is-${kind}`}><Icon name={`text-edit/${kind}`} size={16} />{t(kind === 'wrong' ? '错误示范' : '正确示范')}</span><img src={`/assets/text-edit/guide-${guideIndex + 1}-${kind}.png`} alt={t(guide[kind])} draggable={false} /></div>
