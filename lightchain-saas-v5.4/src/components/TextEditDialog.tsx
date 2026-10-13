@@ -182,7 +182,7 @@ export function TextEditDialog({ source, phase, onClose, onSubmit }: {
     catch { submitted.current = false; setSubmitting(false); setSubmitError('提交失败，请重试'); }
   };
   const guide = guides[guideIndex];
-  return <Dialog className="text-edit-dialog" title={<><Icon name="text-edit/text-edit" size={24} /><span>{t('文字编辑')}</span></>} closeIcon="text-edit/close" phase={phase} onClose={onClose}>
+  return <Dialog className="text-edit-dialog" title={<><Icon name="text-edit/text-edit" size={24} /><span>{t('文字编辑')}</span></>} closeIcon="text-edit/close" closeOnEscape={false} closeOnBackdrop={false} phase={phase} onClose={onClose}>
     <div className="text-edit-body">
       <aside className="text-edit-sidebar">
         <section className="text-edit-recognition">
