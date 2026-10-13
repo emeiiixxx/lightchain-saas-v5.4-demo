@@ -250,7 +250,7 @@ export function TextEditDialog({ source, phase, onClose, onSubmit }: {
           </nav>
         </div> : <div className="text-edit-zoom">
           <IconButton icon="text-edit/zoom-out" aria-label={t('缩小')} disabled={zoom <= .25} onClick={() => zoomAt(zoom - .25)} /><span>{Math.round(zoom * 100)}%</span><IconButton icon="text-edit/zoom-in" aria-label={t('放大')} disabled={zoom >= 4} onClick={() => zoomAt(zoom + .25)} />
-          {(!!box || !!prompt || zoom !== 1 || pan.x !== 0 || pan.y !== 0) && <><Divider vertical /><Button icon="text-edit/reset" onClick={reset}>{t('重置')}</Button></>}
+          {status === 'ready' && <><Divider vertical /><Button icon="text-edit/reset" onClick={reset}>{t('重置')}</Button></>}
         </div>}
       </div>
     </div>
