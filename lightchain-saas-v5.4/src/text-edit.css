@@ -26,11 +26,13 @@
 .text-edit-input > .lc-generate-task { flex-shrink: 0; margin-top: 16px; width: 100%; }
 .text-edit-error { margin: 0; color: var(--status-danger); font-size: 12px; }
 .text-edit-stage { position: relative; flex: 1; min-width: 0; min-height: 0; overflow: hidden; background: var(--background-canvas); touch-action: none; user-select: none; cursor: crosshair; }
+.text-edit-stage:focus { outline: none; }
 .text-edit-image { position: absolute; transition-property: left, top, width, height; }
 .text-edit-stage[data-gesture='true'] .text-edit-image, .text-edit-stage[data-wheel='true'] .text-edit-image { transition-property: opacity; }
 .text-edit-image > img { display: block; width: 100%; height: 100%; pointer-events: none; }
 .text-edit-stage[data-pan='true'] { cursor: grab; }
 .text-edit-stage[data-pan='true'][data-gesture='true'] { cursor: grabbing; }
+.text-edit-stage[data-pan='true'] .text-edit-selection, .text-edit-stage[data-pan='true'] .text-edit-handle { cursor: inherit; }
 .text-edit-selection { position: absolute; border: 1px solid var(--border-brand); background: var(--alpha-brand-20); cursor: move; }
 .text-edit-handle { position: absolute; width: 8px; height: 8px; padding: 0; background: white; border: 1px solid var(--border-brand); border-radius: 50%; translate: -50% -50%; }
 .text-edit-handle--nw { left: 0; top: 0; cursor: nwse-resize; }

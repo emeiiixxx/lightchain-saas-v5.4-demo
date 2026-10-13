@@ -48,6 +48,7 @@ export function TextEditDialog({ source, phase, onClose, onSubmit }: {
   const [wheeling, setWheeling] = useState(false);
   const wheelEnd = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [space, setSpace] = useState(false);
+  const spaceHeld = useRef(false);
   const stage = useRef<HTMLDivElement>(null);
   const media = useRef<HTMLDivElement>(null);
   const gesture = useRef<Gesture | null>(null);
@@ -66,6 +67,7 @@ export function TextEditDialog({ source, phase, onClose, onSubmit }: {
     const observer = new ResizeObserver(resize); observer.observe(target); resize();
     return () => observer.disconnect();
   }, []);
+  useLayoutEffect(() => { stage.current?.focus({ preventScroll: true }); }, []);
   useEffect(() => { writeDemoState(key, { region, prompt, width, height }); }, [key, region, prompt, width, height]);
   useEffect(() => {
     const currentReader = createTextRecognizer(); reader.current = currentReader;
@@ -81,15 +83,32 @@ export function TextEditDialog({ source, phase, onClose, onSubmit }: {
     }).catch(() => { if (request.current === token) setStatus('error'); });
     return () => { request.current++; };
   }, [region, guideOpen, phase, source.image]);
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const dialog = stage.current?.closest('dialog');
     const down = (event: KeyboardEvent) => {
-      if (event.code !== 'Space' || (event.target instanceof Element && event.target.closest('input,textarea,button'))) return;
-      event.preventDefault(); setSpace(true);
+      if (event.code !== 'Space' || !dialog?.open) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target || target.closest('dialog') !== dialog) return;
+      if (!spaceHeld.current && target.closest('input,textarea,select,[contenteditable="true"],[contenteditable=""]')) return;
+      // Space belongs to panning here, including when a toolbar/close button has focus.
+      // Cancel both key events so releasing Space cannot activate that button.
+      event.preventDefault(); event.stopImmediatePropagation();
+      spaceHeld.current = true; setSpace(true);
     };
-    const up = (event: KeyboardEvent) => { if (event.code === 'Space') setSpace(false); };
-    const blur = () => setSpace(false);
-    window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('blur', blur);
-    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', blur); };
+    const up = (event: KeyboardEvent) => {
+      if (event.code !== 'Space' || !spaceHeld.current) return;
+      event.preventDefault(); event.stopImmediatePropagation();
+      spaceHeld.current = false; setSpace(false);
+    };
+    const blur = () => {
+      spaceHeld.current = false; setSpace(false);
+      const active = gesture.current;
+      if (active?.mode !== 'pan') return;
+      gesture.current = null; setDragging(false);
+      if (stage.current?.hasPointerCapture(active.pointer)) stage.current.releasePointerCapture(active.pointer);
+    };
+    window.addEventListener('keydown', down, true); window.addEventListener('keyup', up, true); window.addEventListener('blur', blur);
+    return () => { window.removeEventListener('keydown', down, true); window.removeEventListener('keyup', up, true); window.removeEventListener('blur', blur); };
   }, []);
   const zoomAt = (next: number, anchor?: Point) => {
     next = clamp(next, .25, 4);
@@ -120,10 +139,12 @@ export function TextEditDialog({ source, phase, onClose, onSubmit }: {
   const startGesture = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (guideOpen || submitting || phase === 'exit' || !media.current || (event.button !== 0 && event.button !== 1)) return;
     if ((event.target as Element).closest('button') && !(event.target as Element).closest('[data-text-handle]')) return;
-    const panMode = space || event.button === 1;
+    const panMode = spaceHeld.current || event.button === 1;
     const rect = media.current.getBoundingClientRect();
     if (!panMode && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) return;
-    event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault(); event.stopPropagation();
+    event.currentTarget.focus({ preventScroll: true });
+    event.currentTarget.setPointerCapture(event.pointerId);
     const point = panMode ? { x: event.clientX, y: event.clientY } : imagePoint(event);
     const handle = (event.target as HTMLElement).dataset.textHandle;
     const mode = panMode ? 'pan' : handle ?? ((event.target as Element).closest('.text-edit-selection') ? 'move' : 'draw');
@@ -137,6 +158,7 @@ export function TextEditDialog({ source, phase, onClose, onSubmit }: {
   const moveGesture = (event: ReactPointerEvent<HTMLDivElement>) => {
     const active = gesture.current;
     if (!active || active.pointer !== event.pointerId) return;
+    event.stopPropagation();
     if (active.mode === 'pan') { setPan({ x: active.pan.x + event.clientX - active.start.x, y: active.pan.y + event.clientY - active.start.y }); return; }
     const point = imagePoint(event), dx = point.x - active.start.x, dy = point.y - active.start.y;
     let next: TextRegion;
@@ -158,6 +180,7 @@ export function TextEditDialog({ source, phase, onClose, onSubmit }: {
   const finishGesture = (event: ReactPointerEvent<HTMLDivElement>, cancel = false) => {
     const active = gesture.current;
     if (!active || active.pointer !== event.pointerId) return;
+    event.stopPropagation();
     gesture.current = null; setDragging(false);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     if (active.mode === 'pan') return;
@@ -204,7 +227,7 @@ export function TextEditDialog({ source, phase, onClose, onSubmit }: {
           <GenerateTaskButton cost={999} showCost={!submitting} disabled={!ready} onClick={() => void submit()}>{submitting ? t('提交中…') : t('修改')}</GenerateTaskButton>
         </section>
       </aside>
-      <div ref={stage} className="text-edit-stage" data-gesture={dragging} data-wheel={wheeling} data-pan={space} onPointerDown={startGesture} onPointerMove={moveGesture} onPointerUp={finishGesture} onPointerCancel={event => finishGesture(event, true)} onLostPointerCapture={event => finishGesture(event, true)}>
+      <div ref={stage} className="text-edit-stage" tabIndex={-1} data-gesture={dragging} data-wheel={wheeling} data-pan={space || (dragging && gesture.current?.mode === 'pan')} onPointerDown={startGesture} onPointerMove={moveGesture} onPointerUp={finishGesture} onPointerCancel={event => finishGesture(event, true)} onLostPointerCapture={event => finishGesture(event, true)}>
         {!guideOpen && <div className="text-edit-image" ref={media} style={{ width: shownWidth, height: shownHeight, left: (size.width - shownWidth) / 2 + pan.x, top: (size.height - shownHeight) / 2 + pan.y }}>
           <img src={source.url} alt={source.name} draggable={false} />
           {box && <div className="text-edit-selection" style={{ left: `${box.x / width * 100}%`, top: `${box.y / height * 100}%`, width: `${box.width / width * 100}%`, height: `${box.height / height * 100}%` }}>
