@@ -1,7 +1,7 @@
 import type { GenerationRecord } from './components/CanvasLeftPanel';
 
 // Prepared showcase data; these results are generated assets, not live AI calls.
-export const PROMO_TASK_SEED_VERSION = '2026-10-13-kol-1';
+export const PROMO_TASK_SEED_VERSION = '2026-10-13-kol-2';
 const asset = (name: string) => `/assets/promo-tasks/${name}.${name === 'kol-cutout' ? 'png' : 'jpg'}`;
 const input = (label: string, name: string) => ({ label, image: asset(name) });
 const tags = (...labels: string[]) => labels.map(label => ({ label }));
@@ -39,7 +39,7 @@ const examples: Example[] = [
     key: 'flat-3d', title: '款式 - 转3D平铺', inputs: [input('服装图', 'kol-coast')], outputs: ['kol-flat'], ratio: '2:3', resolution: '2K', parameters: tags('选择区域：全身', '生成面：正面'),
   },
   {
-    key: 'multi-view', title: '款式 - 多视角', inputs: [input('服装图', 'kol-coast')], outputs: ['kol-back'], ratio: '2:3', resolution: '2K', parameters: tags('视角：背面'),
+    key: 'multi-view', title: '款式 - 多视角', inputs: [input('服装图', 'kol-coast'), input('背面参考图', 'kol-back')], outputs: ['kol-back'], ratio: '2:3', resolution: '2K', parameters: tags('视角：背面'),
   },
   {
     key: 'variations', title: '款式 - 款式裂变', inputs: [input('服装图', 'kol-coast')], outputs: ['kol-local', 'kol-sage', 'kol-blue', 'kol-rose'],
@@ -122,6 +122,10 @@ const legacySeedIds = new Set([
 /** Upgrade fixtures once without clearing user-created tasks, canvas data or archives. */
 export function restoreTaskExamples(records: GenerationRecord[], seedVersion?: string): GenerationRecord[] {
   if (seedVersion === PROMO_TASK_SEED_VERSION) return records;
+  if (seedVersion === '2026-10-13-kol-1') {
+    const multiView = initialDemoRecords.find(record => record.id === 'promo-task-multi-view')!;
+    return records.map(record => record.id === multiView.id ? { ...record, tags: multiView.tags } : record);
+  }
   const newSeedIds = new Set(initialDemoRecords.map(record => record.id));
   return [...initialDemoRecords, ...records.filter(record => !legacySeedIds.has(record.id) && !newSeedIds.has(record.id))];
 }
