@@ -1,4 +1,4 @@
-import type { Worker } from 'tesseract.js';
+import type { PaddleOCR, OcrResultItem } from '@paddleocr/paddleocr-js';
 import { rememberDemoAsset } from './demo-storage';
 
 export type TextRegion = { x: number; y: number; width: number; height: number };
@@ -19,47 +19,93 @@ export function cropTextRegion(image: HTMLImageElement, region: TextRegion) {
 }
 
 export function createTextRecognizer() {
-  let worker: Promise<Worker> | undefined;
+  type Engine = Awaited<ReturnType<typeof PaddleOCR.create>>;
+  let engine: Promise<Engine> | undefined;
+  let instance: Engine | undefined;
   let queue = Promise.resolve();
   let disposed = false;
-  const getWorker = () => worker ??= import('tesseract.js').then(async ({ createWorker, PSM }) => {
+  let latest = 0;
+  const release = () => {
+    const previous = instance; instance = undefined; engine = undefined;
+    void previous?.dispose().catch(() => {});
+  };
+  const getEngine = () => engine ??= import('@paddleocr/paddleocr-js').then(async ({ PaddleOCR }) => {
+    if (disposed) throw new Error('cancelled');
     const base = new URL('/assets/ocr/', window.location.href).href;
-    const instance = await createWorker(['chi_sim', 'eng'], 1, {
-      workerPath: `${base}worker.min.js`, corePath: base, langPath: base.replace(/\/$/, ''),
-      workerBlobURL: false, errorHandler: () => {},
+    const runtime = `${base}paddle-0.4.2/`;
+    const current = await PaddleOCR.create({
+      initialize: false,
+      worker: { createWorker: () => new Worker(`${runtime}worker.js`, { type: 'module' }) },
+      textDetectionModelName: 'PP-OCRv5_mobile_det',
+      textRecognitionModelName: 'PP-OCRv5_mobile_rec',
+      textDetectionModelAsset: { url: `${base}PP-OCRv5_mobile_det.tar` },
+      textRecognitionModelAsset: { url: `${base}PP-OCRv5_mobile_rec.tar` },
+      // Single-thread WASM also works on Pages without cross-origin isolation.
+      ortOptions: { backend: 'wasm', wasmPaths: runtime, numThreads: 1, proxy: false },
+      textRecognitionBatchSize: 1,
+      textRecScoreThresh: .5,
     });
-    if (disposed) { await instance.terminate(); throw new Error('cancelled'); }
-    await instance.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT, preserve_interword_spaces: '1' });
-    return instance;
-  });
+    if (disposed) { await current.dispose(); throw new Error('cancelled'); }
+    instance = current;
+    await current.initialize();
+    if (disposed) throw new Error('cancelled');
+    return current;
+  }).catch(error => { release(); throw error; });
   return {
     recognize(image: HTMLImageElement, region: TextRegion): Promise<TextRecognition> {
+      const request = ++latest;
       const task = queue.then(async () => {
-        if (disposed) throw new Error('cancelled');
-        const instance = await getWorker();
+        if (disposed || request !== latest) throw new Error('cancelled');
+        const current = await getEngine();
+        if (disposed || request !== latest) throw new Error('cancelled');
         const crop = cropTextRegion(image, region);
-        // Enlarge small text for OCR; return all coordinates in original image pixels.
-        const scale = Math.min(3, Math.max(1, 1800 / Math.max(crop.width, crop.height)));
+        const scale = Math.min(3, Math.max(1, 1600 / Math.max(crop.width, crop.height)));
+        const padding = 16;
         const canvas = document.createElement('canvas');
-        canvas.width = Math.round(crop.width * scale); canvas.height = Math.round(crop.height * scale);
-        canvas.getContext('2d')!.drawImage(crop, 0, 0, canvas.width, canvas.height);
-        const { data } = await instance.recognize(canvas, {}, { text: true, blocks: true });
-        const rect = (bbox: { x0: number; y0: number; x1: number; y1: number }): TextRegion => ({
-          x: region.x + bbox.x0 / scale, y: region.y + bbox.y0 / scale,
-          width: (bbox.x1 - bbox.x0) / scale, height: (bbox.y1 - bbox.y0) / scale,
+        const contentWidth = Math.round(crop.width * scale), contentHeight = Math.round(crop.height * scale);
+        canvas.width = contentWidth + padding * 2; canvas.height = contentHeight + padding * 2;
+        const context = canvas.getContext('2d')!;
+        context.fillStyle = '#fff'; context.fillRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(crop, padding, padding, contentWidth, contentHeight);
+        const [result] = await current.predict(canvas, {
+          textDetLimitType: 'max', textDetLimitSideLen: Math.min(2048, Math.max(canvas.width, canvas.height)),
+          textDetMaxSideLimit: 2048,
+        }).catch(error => { release(); throw error; });
+        if (disposed || request !== latest) throw new Error('cancelled');
+        // OCR coordinates refer to the padded crop; stored coordinates refer to the original image.
+        const toOriginal = (item: OcrResultItem): RecognizedLine => {
+          const xs = item.poly.map(point => (point[0] - padding) * region.width / contentWidth);
+          const ys = item.poly.map(point => (point[1] - padding) * region.height / contentHeight);
+          const left = Math.max(0, Math.min(region.width, Math.min(...xs)));
+          const top = Math.max(0, Math.min(region.height, Math.min(...ys)));
+          const right = Math.max(left, Math.min(region.width, Math.max(...xs)));
+          const bottom = Math.max(top, Math.min(region.height, Math.max(...ys)));
+          const bounds = { x: region.x + left, y: region.y + top, width: right - left, height: bottom - top };
+          return { ...bounds, text: item.text.trim(), words: [bounds] };
+        };
+        const boxes = (result?.items ?? []).filter(item => item.text.trim() && item.poly.length >= 4 && item.score >= .5)
+          .map(toOriginal).filter(box => box.width > 0 && box.height > 0);
+        // Keep text on the same visual row together, including adjacent table cells.
+        const rows: RecognizedLine[][] = [];
+        for (const box of boxes.sort((a, b) => a.y - b.y || a.x - b.x)) {
+          const row = rows.find(items => Math.abs(items[0].y + items[0].height / 2 - box.y - box.height / 2) <= Math.min(items[0].height, box.height) * .45);
+          if (row) row.push(box); else rows.push([box]);
+        }
+        const lines = rows.map(row => {
+          row.sort((a, b) => a.x - b.x);
+          const x = Math.min(...row.map(box => box.x)), y = Math.min(...row.map(box => box.y));
+          return {
+            x, y, width: Math.max(...row.map(box => box.x + box.width)) - x,
+            height: Math.max(...row.map(box => box.y + box.height)) - y,
+            text: row.map(box => box.text).join(' '), words: row.flatMap(box => box.words),
+          };
         });
-        const lines = (data.blocks ?? []).flatMap(block => block.paragraphs.flatMap(paragraph => paragraph.lines))
-          .filter(line => line.text.trim() && line.confidence >= 25)
-          .map(line => ({ ...rect(line.bbox), text: line.text.trim(), words: line.words.map(word => rect(word.bbox)) }));
         return { text: lines.map(line => line.text).join('\n'), lines };
       });
-      queue = task.then(() => {}, () => {
-        const failedWorker = worker; worker = undefined;
-        void failedWorker?.then(instance => instance.terminate()).catch(() => {});
-      });
+      queue = task.then(() => {}, () => {});
       return task;
     },
-    dispose() { disposed = true; void worker?.then(instance => instance.terminate()).catch(() => {}); },
+    dispose() { disposed = true; latest++; release(); },
   };
 }
 

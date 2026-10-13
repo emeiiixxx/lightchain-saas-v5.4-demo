@@ -2,19 +2,20 @@ import { createReadStream, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Plugin } from 'vite';
 
-// Serve the OCR runtime and language files from the Demo's own origin.
+// Keep the official worker and its matching ONNX runtime on the Demo's origin.
+// Models and their provenance live in public/assets/ocr; no paid API is used.
 export function ocrAssets(): Plugin {
   const root = resolve('node_modules');
+  const workerRoot = resolve(root, '@paddleocr/paddleocr-js/dist/assets');
+  const workerFile = readdirSync(workerRoot).find(name => /^worker-entry-.*\.js$/.test(name));
+  if (!workerFile) throw new Error('PaddleOCR worker asset is missing');
+  const runtimePrefix = 'paddle-0.4.2/';
   const files = new Map<string, string>([
-    ['worker.min.js', resolve(root, 'tesseract.js/dist/worker.min.js')],
-    ['worker.LICENSE.txt', resolve(root, 'tesseract.js/dist/worker.min.js.LICENSE.txt')],
-    ['LICENSE.txt', resolve(root, 'tesseract.js-core/LICENSE')],
-    ...['eng', 'chi_sim'].map(lang => [
-      `${lang}.traineddata.gz`, resolve(root, `@tesseract.js-data/${lang}/4.0.0_best_int/${lang}.traineddata.gz`),
-    ] as [string, string]),
-    ...readdirSync(resolve(root, 'tesseract.js-core'))
-      .filter(name => /-lstm\.wasm(?:\.js)?$/.test(name))
-      .map(name => [name, resolve(root, 'tesseract.js-core', name)] as [string, string]),
+    [`${runtimePrefix}worker.js`, resolve(workerRoot, workerFile)],
+    ['OpenCV-LICENSE.txt', resolve(root, '@techstark/opencv-js/LICENSE')],
+    ['js-yaml-LICENSE.txt', resolve(root, 'js-yaml/LICENSE')],
+    ...['ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm', 'ort-wasm-simd-threaded.jsep.mjs', 'ort-wasm-simd-threaded.jsep.wasm']
+      .map(name => [`${runtimePrefix}${name}`, resolve(root, 'onnxruntime-web/dist', name)] as [string, string]),
   ]);
   return {
     name: 'local-ocr-assets',
@@ -23,7 +24,7 @@ export function ocrAssets(): Plugin {
         const name = request.url?.split('?')[0].replace(/^\/assets\/ocr\//, '');
         const file = request.url?.startsWith('/assets/ocr/') && name ? files.get(name) : undefined;
         if (!file) return next();
-        response.setHeader('Content-Type', name!.endsWith('.js') ? 'text/javascript' : name!.endsWith('.wasm') ? 'application/wasm' : 'application/octet-stream');
+        response.setHeader('Content-Type', /\.m?js$/.test(name!) ? 'text/javascript' : name!.endsWith('.wasm') ? 'application/wasm' : 'application/octet-stream');
         createReadStream(file).on('error', next).pipe(response);
       });
     },
