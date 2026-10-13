@@ -2,6 +2,13 @@
   "fileKey": "TG0pTkt8sYaCspV3ZWHdd4",
   "editor": "299:7246",
   "guideLayout": "420:5699",
+  "loading": {
+    "nodeId": "299:7521",
+    "componentId": "240:5237",
+    "file": "src/artwork/text-edit-loading.svg",
+    "format": "SVG_STRING",
+    "bounds": [20, 20]
+  },
   "exports": {
     "guide-1-wrong.png": "420:6332",
     "guide-1-correct.png": "420:6344",

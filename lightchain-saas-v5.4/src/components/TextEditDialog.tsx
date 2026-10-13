@@ -5,7 +5,7 @@ import { readDemoState, writeDemoState } from '../demo-storage';
 import { createTextRecognizer, replacementText, type TextEditInput, type TextRecognition, type TextRegion } from '../text-edit';
 import { Button, Dialog, Divider, Icon, IconButton } from './ui';
 import { GenerateTaskButton } from './GenerateTaskButton';
-import { Spinner } from './Spinner';
+import loadingArtwork from '../artwork/text-edit-loading.svg?raw';
 import '../text-edit.css';
 
 const guides = [
@@ -188,7 +188,7 @@ export function TextEditDialog({ source, phase, onClose, onSubmit }: {
         <section className="text-edit-recognition">
           <h3>{t('待修改文字')}</h3>
           <div className={`text-edit-recognized ${status === 'empty' || status === 'error' ? 'has-error' : ''}`} role="status" aria-live="polite" tabIndex={0}>
-            {status === 'busy' ? <span className="text-edit-status"><Spinner />{t('正在识别文字...')}</span>
+            {status === 'busy' ? <span className="text-edit-status"><span className="text-edit-loading" aria-hidden="true" dangerouslySetInnerHTML={{ __html: loadingArtwork }} />{t('正在识别文字...')}</span>
               : status === 'ready' ? recognition.text
               : t(status === 'empty' ? '未识别到文字，请调整框选范围' : status === 'error' ? '识别失败，请重试' : '请长按鼠标左键框选文字调整区域')}
             {status === 'error' && <Button onClick={() => setRegion(region ? { ...region } : null)}>{t('重试')}</Button>}

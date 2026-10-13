@@ -10,7 +10,13 @@
 .text-edit-recognized.has-error { border-color: var(--status-danger); color: var(--status-danger); }
 .text-edit-recognized.has-error button { display: flex; margin-top: 8px; }
 .text-edit-status { display: flex; align-items: center; gap: 4px; }
-.text-edit-status .lc-spinner { width: 16px; height: 16px; }
+/* Figma 299:7521: retain its 20px viewBox and 15px artwork. The angular gradient
+   stays in the live SVG document so it is not rasterized as a CSS image mask. */
+.text-edit-loading { display: inline-flex; flex: 0 0 20px; width: 20px; height: 20px; line-height: 0; color: var(--text-primary); pointer-events: none; }
+.text-edit-loading > svg { display: block; flex: none; transform-box: view-box; transform-origin: 50% 50%; animation: text-edit-loading-turn .8s linear infinite; }
+.text-edit-loading foreignObject > div { background: conic-gradient(from 90deg, currentColor 0deg, transparent 360deg) !important; }
+@keyframes text-edit-loading-turn { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .text-edit-loading > svg { animation: none; } }
 .text-edit-input { padding: 24px; display: flex; flex: 1; flex-direction: column; gap: 8px; min-height: 0; }
 .text-edit-textarea { flex: 1; min-height: 80px; display: flex; flex-direction: column; padding: 12px; gap: 8px; border: 1px solid var(--border-weak); border-radius: 16px; background: var(--surface-secondary); }
 .text-edit-textarea:focus-within { background: var(--control-fill-focus); border-color: var(--border-brand); }
