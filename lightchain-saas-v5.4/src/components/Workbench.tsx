@@ -2,6 +2,8 @@ import { useInputMemory } from '../useInputMemory';
 import { readDemoState, writeDemoState, restoreDemoUrls } from '../demo-storage';
 import { retryRecordTarget } from '../retry-record';
 import { PrintPlacementDialog } from './PrintPlacementDialog';
+import { TextEditDialog } from './TextEditDialog';
+import { renderTextEdit, textSelectionPreview, type TextEditInput } from '../text-edit';
 import { CanvasMinimap } from './CanvasMinimap';
 import { TaskFeatureTip } from './TaskFeatureTip';
 import { DownloadFormatMenu } from './DownloadFormatMenu';
@@ -167,6 +169,8 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
   };
   const [printPlacement, setPrintPlacement] = useState<{ source: CanvasImage; draft: QuickEditDraft } | null>(null);
   const shownPrintPlacement = usePresence(printPlacement);
+  const [textEdit, setTextEdit] = useState<CanvasImage | null>(null);
+  const shownTextEdit = usePresence(textEdit);
   const [localEdit, setLocalEdit] = useState<string | null>(null);
   const [localEditTool, setLocalEditTool] = useState<CanvasEditTool>('局部修改');
 
@@ -223,6 +227,37 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     if (archived) archivedRecords.current.set(id, failed(archived));
     setGenerationRecords(previous => previous.map(record => record.id === id ? failed(record) : record));
   };
+  const generateTextEdit = async (input: TextEditInput, prompt: string, sourceId?: string) => {
+    const source = board.images.find(image => image.id === sourceId);
+    if (sourceId && generatingSources.current.has(sourceId)) throw new Error('generation_pending');
+    const loadedInput = source?.url === input.sourceUrl ? source : await prepareMainImage({ id: input.sourceUrl, url: input.sourceUrl, name: '文字编辑原图' });
+    const selectionPreview = await textSelectionPreview(loadedInput.image, input.region);
+    if (!generationMounted.current) return;
+    const id = crypto.randomUUID();
+    const placeholders = board.beginGeneration(sourceId, 1, { name: '文字编辑', taskRecordId: id, sourceSize: input });
+    if (!placeholders.length) throw new Error('generation_unavailable');
+    if (sourceId) generatingSources.current.add(sourceId);
+    const now = new Date();
+    const time = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const record: GenerationRecord = {
+      id, title: '文字编辑', time, sourceId, textEdit: input, supportsPrompt: true, prompt, replayable: true,
+      generating: true, count: 1, resultRatio: `${input.width} / ${input.height}`,
+      tags: [{ label: '原图（框选区域）', image: selectionPreview }],
+      images: placeholders.map(item => ({ id: item.id, url: input.sourceUrl, height: 92 * input.height / input.width, status: 'generating' })),
+    };
+    setGenerationRecords(previous => [record, ...previous]);
+    setTextEdit(null);
+    const delay = new Promise<void>(resolve => {
+      const timer = setTimeout(() => { generationTimers.current.delete(timer); resolve(); }, 1800);
+      generationTimers.current.add(timer);
+    });
+    const render = renderTextEdit(input, prompt).then(url => prepareMainImage({ id: url, url, name: '文字编辑结果' }));
+    void Promise.all([render, delay]).then(([result]) => {
+      if (generationMounted.current) finishDemoBatch(id, placeholders, [result]);
+    }).catch(() => {
+      if (generationMounted.current) { failDemoBatch(id, placeholders); onNotify('生成失败，请重试', 'error'); }
+    }).finally(() => { if (sourceId) generatingSources.current.delete(sourceId); });
+  };
   const generateQuickEdit = async (request: string, draft: QuickEditDraft, sourceId: string, independent = false) => {
     inputMemory.flush();
     const source = board.images.find(item => item.id === sourceId);
@@ -272,7 +307,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     retryingResults.current.add(targetKey);
     if (target.isNew) setGenerationRecords(previous => [target.record, ...previous]);
     const updateStatus = (status: 'generating' | 'failed' | 'success', loaded?: Omit<CanvasImage, 'x' | 'y'>) => {
-      const patch = { status, height: loaded ? 92 * loaded.image.naturalHeight / loaded.image.naturalWidth : 92 * placeholder.height / placeholder.width };
+      const patch = { status, ...(loaded ? { url: loaded.url } : {}), height: loaded ? 92 * loaded.image.naturalHeight / loaded.image.naturalWidth : 92 * placeholder.height / placeholder.width };
       const archived = archivedRecords.current.get(target.record.id);
       if (archived) archivedRecords.current.set(target.record.id, { ...archived, images: archived.images.map(image => image.id === result.id ? { ...image, ...patch } : image) });
       setGenerationRecords(previous => previous.map(item => item.id === target.record.id
@@ -287,7 +322,10 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
       generationTimers.current.add(timer);
     });
     try {
-      const [loaded] = await Promise.all([prepareMainImage({ id: result.id, url: result.url, name: `${t(record.title)} ${index + 1}` }), delay]);
+      const retryOutput = record.textEdit
+        ? renderTextEdit(record.textEdit, record.prompt ?? '').then(url => prepareMainImage({ id: result.id!, url, name: t(record.title) }))
+        : prepareMainImage({ id: result.id, url: result.url, name: `${t(record.title)} ${index + 1}` });
+      const [loaded] = await Promise.all([retryOutput, delay]);
       if (generationMounted.current) {
         board.finishGeneration([placeholder.id], [loaded]);
         updateStatus('success', loaded);
@@ -310,6 +348,11 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
   };
   const regenerateRecord = async (record: GenerationRecord) => {
     if (!record.replayable || record.generating || record.pending) return;
+    if (record.textEdit) {
+      try { await generateTextEdit(record.textEdit, record.prompt ?? '', record.sourceId); }
+      catch { onNotify('提交失败，请重试', 'error'); }
+      return;
+    }
     const source = board.images.find(image => image.id === record.sourceId);
     const id = crypto.randomUUID();
     const count = record.count ?? Math.max(1, record.images.length);
@@ -362,7 +405,9 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
         if (generationTimers.current.size || retryingResults.current.size || generatingSources.current.size) continue;
         resumedResults.current.add(key);
         const demoUrl = record.demoOutputUrls?.[record.images.indexOf(result) % record.demoOutputUrls.length];
-        const recoveredAssets = demoUrl ? prepareMainImage({ id: demoUrl, url: demoUrl, name: record.title }).then(asset => [asset]) : prepareDemoResults({ ratio: record.ratio, resolution: record.resolution, sourceSize: tile, count: 1 });
+        const recoveredAssets = record.textEdit
+          ? renderTextEdit(record.textEdit, record.prompt ?? '').then(url => prepareMainImage({ id: url, url, name: record.title })).then(asset => [asset])
+          : demoUrl ? prepareMainImage({ id: demoUrl, url: demoUrl, name: record.title }).then(asset => [asset]) : prepareDemoResults({ ratio: record.ratio, resolution: record.resolution, sourceSize: tile, count: 1 });
         void recoveredAssets.then(assets => {
           if (!generationMounted.current) return;
           const loaded = assets[0];
@@ -514,7 +559,8 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
             {[t("高清放大"), t("一键去底"), t("智能抠图"), t("智能裁图"), t("AI扩图"), t("AI消除")].map((label, index) => <Button role="menuitem" key={label} onClick={unavailable}><Icon name={`menu-41-3399-imgLeftIcon${index || ''}`} size={20} /><span>{label}</span></Button>)}
           </div>}
         </div>
-        <Divider vertical /><Button onClick={unavailable}><Icon name="element-tech" size={20} />{t("工艺单")}</Button><Divider vertical />
+        <Divider vertical /><Button onClick={unavailable}><Icon name="element-tech" size={20} />{t("工艺单")}</Button>
+        <Button onClick={() => { setQuickEdit(null); setMenu(null); setTextEdit(selected); }}><Icon name="text-edit/text-edit" size={20} />{t('文字编辑')}</Button><Divider vertical />
         <div className="element-toolbar-actions" onPointerLeave={() => setHoveredToolbarAction(null)}>
           <span className="element-toolbar-action-hover" aria-hidden="true" style={{ transform: `translateX(${(hoveredToolbarAction ?? lastHoveredToolbarAction.current) * 36}px)`, opacity: hoveredToolbarAction === null ? 0 : 1 }} />
           <div className="element-toolbar-action" onPointerEnter={() => hoverToolbarAction(0)}><Tool icon="element-preview" label={t("查看大图")} onClick={() => setPreview(true)} /></div>
@@ -595,6 +641,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
       setPrintPlacement(null);
       void generateQuickEdit(t('印花上身'), generationDraft, source.id, true);
     }} />}
+    {shownTextEdit.value && <TextEditDialog key={shownTextEdit.value.id} source={shownTextEdit.value} phase={shownTextEdit.phase} onClose={() => setTextEdit(null)} onSubmit={(input, prompt) => generateTextEdit(input, prompt, shownTextEdit.value!.id)} />}
     <ImageContextMenu board={board} onUpload={onUpload} />
     {shownPreview.value && selected && <FullImageViewer key={selected.id} image={selected} locale={locale} phase={shownPreview.phase} onClose={() => setPreview(false)} />}
   </>;

@@ -1,4 +1,5 @@
 import { GenerationRecordTags } from './GenerationRecordTags';
+import type { TextEditInput } from '../text-edit';
 import { recordHasPrompt } from '../generation-record-display';
 import { TaskDetailPanel } from './TaskDetailPanel';
 import { demoNotice } from '../demo-feedback';
@@ -23,6 +24,7 @@ import { useRecordResultRatio } from '../useRecordResultRatio';
 
 export type LeftPanelTab = 'layers' | 'assets' | 'history';
 export type GenerationRecord = {
+  textEdit?: TextEditInput;
   /** Local showcase outputs used when replaying a simulated feature. */
   demoOutputUrls?: string[];
   supportsPrompt?: boolean; printMode?: 'position' | 'repeat';

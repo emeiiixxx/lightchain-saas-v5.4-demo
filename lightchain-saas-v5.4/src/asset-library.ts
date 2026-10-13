@@ -3,11 +3,13 @@ import type { CanvasImage } from './useCanvas';
 export type LibraryImage = Pick<CanvasImage, 'id' | 'name' | 'url'> & Partial<Pick<CanvasImage, 'width' | 'height' | 'mimeType' | 'uploadedAt'>>;
 // Figma-provided demo fixtures, not a connected account's upload history.
 export const demoAssets: LibraryImage[] = [
+  { id: 'figma-text-edit-tech-pack', name: '文字编辑 · 工艺单', url: '/assets/text-edit/tech-pack.png' },
   { id: 'figma-single-select', name: '彩色毛绒穿搭', url: '/assets/upload/single-select-asset.png' },
 ];
 
 // Figma 17:1333 multi-select demo fixtures; original exported assets.
 export const multiDemoAssets: LibraryImage[] = [
+  { id: 'figma-text-edit-tech-pack', name: '文字编辑 · 工艺单', url: '/assets/text-edit/tech-pack.png' },
   {
     "id": "figma-multi-0",
     "name": "浅色花卉图案",

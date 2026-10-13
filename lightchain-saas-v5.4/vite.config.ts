@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { ocrAssets } from './ocr-assets';
 
 const pagesBase = '/lightchain-saas-v5.4-demo/';
 
@@ -17,5 +18,6 @@ export default defineConfig(({ command }) => ({
     },
     react(),
     tailwindcss(),
+    ocrAssets(),
   ],
 }));
