@@ -5,7 +5,8 @@ import { recordDisplayTags } from '../generation-record-display';
 
 export function GenerationRecordTags({ record, active = true, disabled = false }: { record: GenerationRecord; active?: boolean; disabled?: boolean }) {
   const { t, locale } = useLocale();
-  const parameters = [record.ratio ? (record.ratio === 'auto' ? t('智能') : record.ratio) : undefined, record.resolution, record.count ? t(`${record.count}张`) : undefined].filter(Boolean);
+  const showCount = !record.textEdit && record.title !== '文字编辑';
+  const parameters = [record.ratio ? (record.ratio === 'auto' ? t('智能') : record.ratio) : undefined, record.resolution, showCount && record.count ? t(`${record.count}张`) : undefined].filter(Boolean);
   return <div className="generation-record-tags">
     {recordDisplayTags(record).map((tag, index) => tag.image
       ? <GenerationImageTag key={`${tag.label}-${index}`} src={tag.image} label={t(tag.label)} active={active} disabled={disabled} />
