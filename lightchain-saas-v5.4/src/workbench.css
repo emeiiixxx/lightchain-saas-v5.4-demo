@@ -380,6 +380,7 @@ html:not([lang='zh-CN']) .shortcuts-panel { width: 400px; }
 .generation-record-tag:has(> img) { padding-left: 2px; }
 .generation-record-tag img { width: 20px; height: 20px; border-radius: 4px; object-fit: cover; }
 .generation-record-prompt { display: flex; flex-direction: column; gap: var(--spacing-base); padding: 12px 12px 8px; border-radius: var(--radius-l); background: var(--surface-secondary); }
+.generation-record-prompt:not(:has(> .generation-record-actions)) { padding: 12px; }
 .generation-record-prompt > p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-secondary); font-size: 14px; line-height: 20px; }
 .generation-record-list .generation-record-prompt > p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; line-clamp: 5; overflow: hidden; }
 .generation-record-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--spacing-base); }
