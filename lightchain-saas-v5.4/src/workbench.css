@@ -456,7 +456,7 @@ html:not([lang='zh-CN']) .shortcuts-panel { width: 400px; }
 .generation-tag-thumb, .generation-record-color-swatch { display: block; flex-shrink: 0; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 4px; overflow: hidden; }
 .generation-tag-thumb { background: transparent; cursor: default; }
 .generation-tag-preview { position: fixed; z-index: 1000; display: flex; padding: 4px; border-radius: 8px; background: var(--surface-floating); box-shadow: 0 8px 24px var(--overlay-weak), 0 0 0 1px var(--border-weak); }
-.generation-tag-preview > img { display: block; flex: none; width: auto; max-width: none; max-height: 240px; border-radius: 4px; object-fit: contain; }
+.generation-tag-preview > img { display: block; flex: none; width: auto; max-width: min(312px, calc(100vw - 24px)); max-height: 240px; border-radius: 4px; object-fit: contain; }
 
 /* Figma 2:3463 / 2:3669: shared isolated tool input, bounded by the canvas viewport. */
 .local-edit-heading { display: flex; flex: 1; min-width: 0; align-items: center; gap: 8px; padding: 8px; }

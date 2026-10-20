@@ -2,7 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePresence } from '../usePresence';
 
-// Same image bubble sizing and hover behavior as v5.3 AI try-on history.
+// Keep the image bubble within 320px, including its padding.
 export function GenerationImageTag({ src, label, active, disabled = false }: { src: string; label: string; active: boolean; disabled?: boolean }) {
   const anchor = useRef<HTMLButtonElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -19,7 +19,8 @@ export function GenerationImageTag({ src, label, active, disabled = false }: { s
     if (!rect) return;
     const below = window.innerHeight - rect.bottom - 16;
     const above = rect.top - 16;
-    const height = Math.max(1, Math.min(240, Math.max(below, above) - 8, (window.innerWidth - 24) / ratio.current));
+    const maxImageWidth = Math.max(1, Math.min(320 - 8, window.innerWidth - 24));
+    const height = Math.max(1, Math.min(240, Math.max(below, above) - 8, maxImageWidth / ratio.current));
     const width = height * ratio.current + 8;
     const top = below >= height + 8 ? rect.bottom + 4 : Math.max(8, rect.top - height - 12);
     setPosition({ left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)), top, height });
