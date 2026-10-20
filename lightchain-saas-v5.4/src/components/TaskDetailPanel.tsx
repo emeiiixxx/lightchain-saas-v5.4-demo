@@ -10,7 +10,7 @@ import { Button, Divider, Icon } from './ui';
 import { TaskResultPlaceholder } from './TaskResultPlaceholder';
 import { ProgressiveImage } from './ProgressiveImage';
 import { GenerationRecordTags } from './GenerationRecordTags';
-import { recordHasPrompt } from '../generation-record-display';
+import { recordHasPrompt, recordHasPromptActions } from '../generation-record-display';
 import { ElementSendMenu } from './ElementSendMenu';
 import { TaskRecordMoreMenu } from './TaskRecordMoreMenu';
 import { useRecordResultRatio } from '../useRecordResultRatio';
@@ -71,11 +71,11 @@ export function TaskDetailPanel({ record, selectedIndex, active, onSelect, onLib
       <GenerationRecordTags record={record} active={active && !disabled} disabled={disabled} />
       {recordHasPrompt(record) && <div className="generation-record-prompt task-detail-prompt">
         <p>{t(record.prompt!)}</p>
-        <div className="generation-record-actions">
+        {recordHasPromptActions(record) && <div className="generation-record-actions">
           <Button disabled={disabled} onClick={onLibrary} aria-label={t('提示词库')} title={t('提示词库')}><Icon name="generation-record-imgLeftIcon" size={16} />{compactLibraryLabel}</Button><Divider vertical />
           <Button disabled={disabled} onClick={event => onSave(event.currentTarget, t(record.prompt!))} aria-label={t('保存提示词')} title={t('保存提示词')}><Icon name="generation-record-imgLeftIcon1" size={16} />{compactSavePromptLabel}</Button><Divider vertical />
           <Button disabled={disabled} onClick={() => onCopy(t(record.prompt!))}><Icon name="generation-record-imgLeftIcon2" size={16} />{t('复制')}</Button>
-        </div>
+        </div>}
       </div>}
     </div>
     <div className="task-detail-actions">

@@ -5,6 +5,9 @@ const isPrintRecord = (record: GenerationRecord) => record.title === '款式 - �
 export function recordHasPrompt(record: GenerationRecord) {
   return (record.supportsPrompt ?? !isPrintRecord(record)) && !!record.prompt?.trim();
 }
+export function recordHasPromptActions(record: GenerationRecord) {
+  return recordHasPrompt(record) && !record.textEdit && record.title !== '文字编辑';
+}
 export function recordDisplayTags(record: GenerationRecord) {
   if (!isPrintRecord(record) || record.tags.some(tag => tag.label === '指定位置' || tag.label === '满印')) return record.tags;
   const mode = record.printMode ?? (record.prompt?.includes('满印') ? 'repeat' : record.prompt?.includes('指定位置') ? 'position' : undefined);

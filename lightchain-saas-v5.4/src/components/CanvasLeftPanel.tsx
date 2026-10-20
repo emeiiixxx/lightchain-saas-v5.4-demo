@@ -1,6 +1,6 @@
 import { GenerationRecordTags } from './GenerationRecordTags';
 import type { TextEditInput } from '../text-edit';
-import { recordHasPrompt } from '../generation-record-display';
+import { recordHasPrompt, recordHasPromptActions } from '../generation-record-display';
 import { TaskDetailPanel } from './TaskDetailPanel';
 import { demoNotice } from '../demo-feedback';
 import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
@@ -156,11 +156,11 @@ export function CanvasLeftPanel({ tab, hasSelectedElement, onTabChange, onClose,
               <GenerationRecordTags record={record} active={tab === 'history'} />
               {recordHasPrompt(record) && <div className="generation-record-prompt">
                 <p data-tooltip={t(record.prompt!)} data-tooltip-truncated-only>{t(record.prompt!)}</p>
-                <div className="generation-record-actions">
+                {recordHasPromptActions(record) && <div className="generation-record-actions">
                   <Button onClick={() => setLibraryOpen(true)} aria-label={t('提示词库')} title={t('提示词库')}><Icon name="generation-record-imgLeftIcon" size={16} />{compactLibraryLabel}</Button><Divider vertical />
                   <Button aria-haspopup="dialog" aria-expanded={saveTarget?.content === t(record.prompt!)} aria-label={t('保存提示词')} title={t('保存提示词')} onClick={event => setSaveTarget({ anchor: event.currentTarget, content: t(record.prompt!) })}><Icon name="generation-record-imgLeftIcon1" size={16} />{compactSavePromptLabel}</Button><Divider vertical />
                   <Button onClick={() => void copyPrompt(t(record.prompt!))}><Icon name="generation-record-imgLeftIcon2" size={16} />{t('复制')}</Button>
-                </div>
+                </div>}
               </div>}
             </div>
             {record.generating && !record.images.length && <RecordResults record={record} eager={index === 0} onOpen={() => {}} />}
