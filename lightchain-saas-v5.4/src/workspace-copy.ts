@@ -6,6 +6,7 @@ export const workspaceCopy: Record<string, readonly [string, string]> = {
 '调整内容': ['Your changes', '変更内容'],
 '修改': ['Apply changes', '変更する'],
 '原图（框选区域）': ['Original (selected area)', '元画像（選択範囲）'],
+'框选区域': ['Selected area', '選択範囲'],
 '正在识别文字...': ['Recognizing text…', '文字を認識中…'],
 '未识别到文字，请调整框选范围': ['No text found. Adjust the selection.', '文字が見つかりません。選択範囲を調整してください。'],
 '识别失败，请重试': ['Text recognition failed. Try again.', '文字の認識に失敗しました。再試行してください。'],

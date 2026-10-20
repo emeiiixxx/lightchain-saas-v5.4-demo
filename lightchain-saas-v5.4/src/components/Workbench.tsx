@@ -32,6 +32,21 @@ import { CanvasArrangeMenu } from './CanvasArrangeMenu';
 import { imageBounds } from '../canvas-selection';
 import { canvasToolbarPosition, intersectsViewport, screenBounds } from '../canvas-toolbar';
 
+async function restoreTextEditTags(record: GenerationRecord): Promise<GenerationRecord> {
+  const input = record.textEdit;
+  if (!input || !record.tags.some(tag => tag.label === '原图（框选区域）')) return record;
+  try {
+    const source = await prepareMainImage({ id: input.sourceUrl, url: input.sourceUrl, name: '文字编辑原图' });
+    const crop = await textSelectionPreview(source.image, input.region);
+    return { ...record, tags: record.tags.flatMap(tag => tag.label === '原图（框选区域）'
+      ? [{ label: '原图', image: input.sourceUrl }, { label: '框选区域', image: crop }]
+      : [tag]) };
+  } catch {
+    // Keep the saved record intact if its source cannot currently be restored.
+    return record;
+  }
+}
+
 type Board = ReturnType<typeof useCanvas>;
 type Props = { board: Board; open: boolean; onOpenChange: (open: boolean) => void; phase: 'enter' | 'exit'; onUpload: () => void; onReplace: () => void; onHelp: () => void; onNotify: Notify; uploads: LibraryImage[]; onRememberUpload: (image: LibraryImage) => void };
 type AgentMessage = { role: 'user' | 'assistant'; text: string; images?: string[]; demo?: boolean };
@@ -140,13 +155,18 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
   const resumedResults = useRef(new Set<string>());
   useEffect(() => {
     let active = true;
-    void restoreDemoUrls(readDemoState<{ records: GenerationRecord[]; archived: [string, GenerationRecord][]; seedVersion?: string } | null>('tasks', null)).then(saved => {
+    void restoreDemoUrls(readDemoState<{ records: GenerationRecord[]; archived: [string, GenerationRecord][]; seedVersion?: string } | null>('tasks', null)).then(async saved => {
       if (!active) return;
       if (saved) {
-        const records = restoreTaskExamples(saved.records, saved.seedVersion);
+        const [savedRecords, savedArchived] = await Promise.all([
+          Promise.all(saved.records.map(restoreTextEditTags)),
+          Promise.all(saved.archived.map(async ([id, record]): Promise<[string, GenerationRecord]> => [id, await restoreTextEditTags(record)])),
+        ]);
+        if (!active) return;
+        const records = restoreTaskExamples(savedRecords, saved.seedVersion);
         const retainedIds = new Set(records.map(record => record.id));
-        archivedRecords.current = new Map(saved.archived);
-        for (const record of saved.records) {
+        archivedRecords.current = new Map(savedArchived);
+        for (const record of savedRecords) {
           if (!retainedIds.has(record.id) && !archivedRecords.current.has(record.id)) {
             archivedRecords.current.set(record.id, record);
           }
@@ -242,7 +262,7 @@ export function Workbench({ board, open, onOpenChange, phase, onUpload, onReplac
     const record: GenerationRecord = {
       id, title: '文字编辑', time, sourceId, textEdit: input, supportsPrompt: true, prompt, replayable: true,
       generating: true, count: 1, resultRatio: `${input.width} / ${input.height}`,
-      tags: [{ label: '原图（框选区域）', image: selectionPreview }],
+      tags: [{ label: '原图', image: input.sourceUrl }, { label: '框选区域', image: selectionPreview }],
       images: placeholders.map(item => ({ id: item.id, url: input.sourceUrl, height: 92 * input.height / input.width, status: 'generating' })),
     };
     setGenerationRecords(previous => [record, ...previous]);

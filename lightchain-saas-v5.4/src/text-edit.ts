@@ -117,15 +117,7 @@ async function keepCanvas(canvas: HTMLCanvasElement) {
 }
 
 export async function textSelectionPreview(image: HTMLImageElement, region: TextRegion) {
-  const scale = Math.min(1, 1200 / Math.max(image.naturalWidth, image.naturalHeight));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(image.naturalWidth * scale); canvas.height = Math.round(image.naturalHeight * scale);
-  const context = canvas.getContext('2d')!;
-  context.drawImage(image, 0, 0, canvas.width, canvas.height);
-  context.fillStyle = 'rgba(32,208,196,0.2)'; context.strokeStyle = '#0bc1b8'; context.lineWidth = 2;
-  context.fillRect(region.x * scale, region.y * scale, region.width * scale, region.height * scale);
-  context.strokeRect(region.x * scale, region.y * scale, region.width * scale, region.height * scale);
-  return keepCanvas(canvas);
+  return keepCanvas(cropTextRegion(image, region));
 }
 
 export function replacementText(prompt: string) {
