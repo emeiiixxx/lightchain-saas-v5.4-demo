@@ -7,6 +7,7 @@ export function GenerationImageTag({ src, label, active, disabled = false }: { s
   const anchor = useRef<HTMLButtonElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ratio = useRef(1);
+  const naturalHeight = useRef(240);
   const id = useId();
   const [open, setOpen] = useState(false);
   const shown = usePresence(active && open ? src : null);
@@ -20,7 +21,7 @@ export function GenerationImageTag({ src, label, active, disabled = false }: { s
     const below = window.innerHeight - rect.bottom - 16;
     const above = rect.top - 16;
     const maxImageWidth = Math.max(1, Math.min(320 - 8, window.innerWidth - 24));
-    const height = Math.max(1, Math.min(240, Math.max(below, above) - 8, maxImageWidth / ratio.current));
+    const height = Math.max(1, Math.min(naturalHeight.current, 240, Math.max(below, above) - 8, maxImageWidth / ratio.current));
     const width = height * ratio.current + 8;
     const top = below >= height + 8 ? rect.bottom + 4 : Math.max(8, rect.top - height - 12);
     setPosition({ left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)), top, height });
@@ -45,9 +46,9 @@ export function GenerationImageTag({ src, label, active, disabled = false }: { s
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
   return <><span className="generation-record-tag generation-record-tag--image">
     <button disabled={disabled} ref={anchor} type="button" className="generation-tag-thumb" aria-label={label} aria-describedby={open && active ? id : undefined} onMouseEnter={show} onMouseLeave={closeSoon} onFocus={show} onBlur={closeSoon} onClick={show}>
-      <img src={src} width={20} height={20} alt="" onLoad={event => { ratio.current = event.currentTarget.naturalWidth / (event.currentTarget.naturalHeight || 1); }} />
+      <img src={src} width={20} height={20} alt="" onLoad={event => { naturalHeight.current = event.currentTarget.naturalHeight || 1; ratio.current = event.currentTarget.naturalWidth / naturalHeight.current; }} />
     </button>{label}
   </span>{shown.value && createPortal(<div id={id} className="generation-tag-preview" data-phase={shown.phase} inert={shown.phase === 'exit'} role="region" aria-label={label} style={{ left: position.left, top: position.top }} onMouseEnter={keepOpen} onMouseLeave={closeSoon}>
-    <img src={shown.value} alt={label} style={{ height: position.height }} onLoad={event => { ratio.current = event.currentTarget.naturalWidth / (event.currentTarget.naturalHeight || 1); place(); }} />
+    <img src={shown.value} alt={label} style={{ maxHeight: position.height }} onLoad={event => { naturalHeight.current = event.currentTarget.naturalHeight || 1; ratio.current = event.currentTarget.naturalWidth / naturalHeight.current; place(); }} />
   </div>, anchor.current?.closest('dialog') ?? document.body)}</>;
 }
